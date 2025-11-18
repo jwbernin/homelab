@@ -1,0 +1,369 @@
+<?php
+  $groveList = [
+{% for host in groups['gardenbeds'] %}
+    '{{ host | regex_replace('\.jbho\.me') }}',
+{% endfor %}
+  ];
+  $controllerList = [
+{% for host in groups['controller'] %}
+    '{{ host | regex_replace('\.jbho\.me') }}',
+{% endfor %}
+  ];
+  $pondList = [
+{% for host in groups['pond'] %}
+    '{{ host | regex_replace('\.jbho\.me') }}',
+{% endfor %}
+  ];
+?>
+<html>
+<head>
+<meta http-equiv="refresh" content="3600">
+<title>Graphs - last 24 hours</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<center>
+<font size="+1">Water Usage</font>
+<table with="90%" cellpadding="20px" cellspacing="10px">
+ <tr>
+  <td>
+    <div>
+      <a href="graphWaterMeter.php"><canvas id="watermeter" width="550"></canvas></a>
+    </div>
+  </td>
+ </tr>
+</table>
+<hr width="90%" height="2px">
+<font size="+1">Pond Sensors</font>
+<table with="90%" cellpadding="20px" cellspacing="10px">
+ <tr>
+<?php
+  $rowNum=0;
+  $colNum=0;
+  foreach ( $pondList as $sensor ) {
+
+?>
+  <td align="center">
+    Pond Sensor: <?php echo $sensor; ?>.jbho.me<br>
+<div>
+  <a href="graphPond.php?sensor=<?php echo $sensor; ?>"><canvas id="<?php echo $sensor; ?>" width="500"></canvas></a>
+</div>
+  </td>
+<?php
+    $colNum+=1;
+    if ( 0 == $colNum % 3 ) {
+?>
+ </tr><tr>
+<?php
+      $rowNum+=1;
+    }
+  }
+?>
+ </tr>
+</table>
+
+<!--
+<font size="+1">Grove Controllers</font>
+<table with="90%" cellpadding="20px" cellspacing="10px">
+ <tr>
+<?php
+  $rowNum=0;
+  $colNum=0;
+  foreach ( $controllerList as $sensor ) {
+
+?>
+  <td align="center">
+    Grove Controller: <?php echo $sensor; ?>.jbho.me<br>
+<div>
+  <canvas id="<?php echo $sensor; ?>" width="500"></canvas>
+</div>
+  </td>
+<?php
+    $colNum+=1;
+    if ( 0 == $colNum % 3 ) {
+?>
+ </tr><tr>
+<?php
+      $rowNum+=1;
+    }
+  }
+?>
+ </tr>
+</table>
+-->
+<hr width="90%" height="2px">
+<font size="+1">Grove Sensors</font>
+<table with="90%" cellpadding="20px" cellspacing="10px">
+ <tr>
+<?php
+  $rowNum=0;
+  $colNum=0;
+  foreach ( $groveList as $sensor ) {
+  
+?>
+  <td align="center">
+    Grove Sensor: <?php echo $sensor; ?>.jbho.me<br>
+<div>
+  <canvas id="<?php echo $sensor; ?>" width="500"></canvas>
+</div>
+  </td>
+<?php
+    $colNum+=1;
+    if ( 0 == $colNum % 3 ) {
+?>
+ </tr><tr>
+<?php
+      $rowNum+=1;
+    }
+  }
+?>
+ </tr>
+</table>
+<hr width="90%" height="2px">
+</center>
+<script>
+  function showGrove(target, source) {
+    $.post("groveCombinedData24h.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var hour = [];
+      var airTemp = [];
+      var soilTemp = [];
+      var soilMoisture = [];
+
+      for (var i in data) {
+        hour.push(data[i]['hour']);
+        soilTemp.push(data[i]['soilTemp']);
+        airTemp.push(data[i]['airTemp']);
+        soilMoisture.push(data[i]['soilMoisture']);
+      }
+
+      hour.reverse();
+      airTemp.reverse();
+      soilTemp.reverse();
+      soilMoisture.reverse();
+
+      var chartdata = {
+        labels: hour,
+        datasets: [
+          {
+            label: 'Air Temperature (F)',
+            backgroundColor: '#49e2ff',
+            borderColor: '#46d5f1',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: airTemp
+          },
+          {
+            label: 'Soil Temperature (F)',
+            backgroundColor: '#47ff51',
+            borderColor: '#3cde44',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: soilTemp
+          },
+          {
+            label: 'Soil Moisture (%)',
+            backgroundColor: '#6d4dff',
+            borderColor: '#5439cc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: soilMoisture
+          }       
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  function showController(target, source) {
+    $.post("controllerCombinedData24h.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var hour = [];
+      var airTemp = [];
+      var pressure = [];
+      var humidity = [];
+
+      for (var i in data) {
+        hour.push(data[i]['hour']);
+        pressure.push(data[i]['pressure']);
+        airTemp.push(data[i]['airTemp']);
+        humidity.push(data[i]['humidity']);
+      }
+
+      hour.reverse();
+      airTemp.reverse();
+      pressure.reverse();
+      humidity.reverse();
+
+      var chartdata = {
+        labels: hour,
+        datasets: [
+          {
+            label: 'Air Temperature (F)',
+            backgroundColor: '#49e2ff',
+            borderColor: '#46d5f1',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: airTemp
+          },
+          {
+            label: 'Pressure (mbar)',
+            backgroundColor: '#47ff51',
+            borderColor: '#3cde44',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: pressure
+          },
+          {
+            label: 'Humidity (%)',
+            backgroundColor: '#6d4dff',
+            borderColor: '#5439cc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: humidity
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+
+  function showPond(target, source) {
+    $.post("pondData24h.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var hour = [];
+      var waterTemp = [];
+
+      for (var i in data) {
+        hour.push(data[i]['hour']);
+        waterTemp.push(data[i]['waterTemp']);
+      }
+
+      hour.reverse();
+      waterTemp.reverse();
+
+      var chartdata = {
+        labels: hour,
+        datasets: [
+          {
+            label: 'Water Temperature (F)',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterTemp
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  function showWaterMeter(target) {
+    $.post("watermeterData24h.php",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var hour = [];
+      var waterUsage = [];
+
+      for (var i in data) {
+        hour.push(data[i]['hour']);
+        waterUsage.push(data[i]['waterUse']/10.0);
+      }
+
+      hour.reverse();
+      waterUsage.reverse();
+
+      var chartdata = {
+        labels: hour,
+        datasets: [
+          {
+            label: 'Water Consumption',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterUsage
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'bar',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  $(document).ready(function () {
+<?php
+  foreach ( $groveList as $sensor ) {
+?>
+    showGrove("#<?php echo $sensor; ?>", '<?php echo $sensor; ?>');
+<?php
+  }
+  foreach ( $pondList as $sensor ) {
+?>
+    showPond("#<?php echo $sensor; ?>", '<?php echo $sensor; ?>');
+<?php
+  }
+?>
+    showWaterMeter("#watermeter");
+  });
+
+</script>
+</body>
+</html>

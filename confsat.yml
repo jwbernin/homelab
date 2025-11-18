@@ -1,0 +1,264 @@
+---
+- name: Build Satellite from a newly-installed (minimal) RHEL server
+  hosts: satprod
+  collections:
+    - redhat.satellite
+
+  tasks:
+    - name: Configure Satellite
+      block:
+        - name: Ensure repos are enabled
+          redhat.satellite.repository_set:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            organization: "{{ satOrg }}"
+            label: "{{ item.label }}"
+            repositories: "{{ item.repositories | default(omit)}}"
+            all_repositories: "{{ item.repositories is not defined }}"
+            state: enabled
+          loop: "{{ cdn_repos }}"
+          delegate_to: localhost
+    
+        - name: Ensure repos are enabled
+          redhat.satellite.repository_set:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            organization: "{{ satOrg }}"
+            label: "{{ item.label }}"
+            all_repositories: yes
+            state: enabled
+          loop: "{{ cdn_repos }}"
+          when: item.repositories is not defined
+          delegate_to: localhost
+    
+        - name: Ensure LEs exist
+          redhat.satellite.lifecycle_environment:
+            name: "{{ item.name }}"
+            organization: "{{ satOrg }}"
+            prior: "{{ item.prior | default ('Library') }}"
+            state: present
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+          loop: "{{ le_pairs }}"
+          delegate_to: localhost
+        
+        - name: Get all Products
+          redhat.satellite.resource_info:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            resource: products
+            organization: "{{ satOrg }}"
+          register: productres
+          delegate_to: localhost
+    
+        - name: Intake list of products
+          set_fact:
+            products: "{{ (products | default ([])) + [ item.name ] }}"
+          loop: "{{ productres.resources }}"
+          when: item.repository_count > 0
+          delegate_to: localhost
+    
+        - name: Create Sync plan
+          redhat.satellite.sync_plan:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            name: "Daily Sync of Red Hat Product Repositories"
+            organization: "{{ satOrg }}"
+            interval: "{{ sync_interval }}"
+            enabled: true
+            sync_date: "{{ sync_date_time }}"
+            products: "{{ products }}"
+          delegate_to: localhost
+    
+        - name: Create third-party products
+          redhat.satellite.product:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            organization: "{{ satOrg }}"
+            name: "{{ item.name }}"
+            sync_plan: "{{ item.sync_plan }}"
+            validate_certs: false
+          loop: "{{ other_products }}"
+          delegate_to: localhost
+    
+        - name: Create GPG Keys
+          redhat.satellite.content_credential:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            organization: "{{ satOrg }}"
+            name: "{{ item.name }}"
+            content_type: gpg_key
+            content: "{{ item.content }}"
+            validate_certs: false
+          loop: "{{ gpg_keys }}"
+          delegate_to: localhost
+        
+        - name: Create product repositories
+          include_tasks: thirdpartyrepos.yml
+          loop: "{{ other_products }}"
+          loop_control:
+            loop_var: theprod
+
+        - name: get all repositories
+          redhat.satellite.resource_info:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            resource: repositories
+          register: repositories
+          delegate_to: localhost
+        
+        - name: Set download policy
+          redhat.satellite.repository:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            organization: "{{ satOrg }}"
+            name: "{{ item.name }}"
+            download_policy: immediate
+            content_type: yum
+            product: "{{ item.product.name }}"
+          loop: "{{ repositories.resources }}"
+          delegate_to: localhost
+    
+        - name: Reposyncs
+          block:
+            - name: sync product repository
+              redhat.satellite.repository_sync:
+                username: "{{ satAdmin }}"
+                password: "{{ satPass }}"
+                server_url: "https://{{ inventory_hostname }}"
+                validate_certs: false
+                organization: "{{ satOrg }}"
+                product: "{{ item.product.name }}"
+                repository:  "{{ item.name }}"
+              loop: "{{ repositories.resources }}"
+              when: item.url
+              async: 999999
+              poll: 0
+              register: repo_sync_sleeper
+              delegate_to: localhost
+        
+            - name: Wait until all Syncs have finished
+              async_status:
+                jid: "{{ repo_sync_sleeper_item.ansible_job_id }}"
+              loop: "{{ repo_sync_sleeper.results }}"
+              loop_control:
+                loop_var: repo_sync_sleeper_item
+              when: repo_sync_sleeper_item.ansible_job_id is defined  # Skip items that were skipped in the previous task
+              register: async_job_result
+              until: async_job_result.finished
+              # We want to give ourselves a maximum of 6 hours. The timer 
+              # resets every time an async job completes, and if you've 
+              # not completed at least one repo after 6 hours, you have 
+              # bandwidth issues.
+              retries: 2160
+              delay: 10
+              delegate_to: localhost
+          when: not skip_sync
+
+        - name: Create Content Views
+          redhat.satellite.content_view:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            organization: "{{ satOrg }}"
+            name: "{{ item.name }}"
+            repositories: "{{ item.repositories }}"
+          loop: "{{ content_views }}"
+          delegate_to: localhost
+        
+        - name: List all Lifecycle Environments
+          set_fact:
+            le_list: "{{ (le_list | default([])) + [ item.name ] }}"
+          loop: "{{ le_pairs }}"
+          delegate_to: localhost
+        
+        - name: Publish all Content Views
+          redhat.satellite.content_view_version:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            validate_certs: false
+            organization: "{{ satOrg }}"
+            content_view: "{{ item.name }}"
+            lifecycle_environments: "{{ le_list }}"
+          loop: "{{ content_views }}"
+          delegate_to: localhost
+          when: not skip_publish
+        
+        - name: Create Activation Keys
+          redhat.satellite.activation_key:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            organization: "{{ satOrg }}"
+            name: "{{ item.0.name }}-{{ item.1.name }}-AK"
+            lifecycle_environment: "{{ item.0.name }}"
+            content_view: "{{ item.1.name }}"
+            content_overrides: "{{ ak_overrides }}"
+            validate_certs: false
+          loop: "{{ le_pairs | product(content_views) | list }}"
+          delegate_to: localhost
+          when: not skip_publish
+    
+        - name: Create Host Groups
+          redhat.satellite.hostgroup:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            organization: "{{ satOrg }}"
+            activation_keys: "{{ item.0.name }}-{{ item.1.name }}-AK"
+            architecture: x86_64
+            content_source: satellite.jbho.me
+            content_view: "{{ item.1.name }}"
+            name: "{{ item.0.name }}-{{ item.1.name }}-HG"
+            domain: jbho.me
+            lifecycle_environment: "{{ item.0.name }}"
+            locations: Homelab
+            operatingsystem: "{{ os_vers[item.1.name] }}"
+            pxe_loader: "PXELinux BIOS"
+            validate_certs: false
+          loop: "{{ le_pairs | product(content_views) | list }}"
+          delegate_to: localhost
+          tags: hostgroup
+          when: "'ARM' not in item.1.name"
+
+        - name: Create Host Groups
+          redhat.satellite.hostgroup:
+            username: "{{ satAdmin }}"
+            password: "{{ satPass }}"
+            server_url: "https://{{ inventory_hostname }}"
+            organization: "{{ satOrg }}"
+            activation_keys: "{{ item.0.name }}-{{ item.1.name }}-AK"
+            architecture: aarch64
+            content_source: satellite.jbho.me
+            content_view: "{{ item.1.name }}"
+            name: "{{ item.0.name }}-{{ item.1.name }}-HG"
+            domain: jbho.me
+            lifecycle_environment: "{{ item.0.name }}"
+            locations: Homelab
+            operatingsystem: "{{ os_vers[item.1.name] }}"
+            pxe_loader: "PXELinux BIOS"
+            validate_certs: false
+          loop: "{{ le_pairs | product(content_views) | list }}"
+          delegate_to: localhost
+          tags: hostgroup
+          when: "'ARM' in item.1.name"
+
+      when: not skip_satconfig

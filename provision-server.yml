@@ -1,0 +1,200 @@
+---
+- name: Create required ISOs for new server(s)
+  hosts: all
+  gather_facts: false
+  serial: 1
+
+  tasks:
+#  - name: Add DNS entry to IPA
+#    ipa_dnsrecord:
+#      ipa_host: "{{ ipa_host }}"
+#      ipa_user: "{{ ipa_user }}"
+#      ipa_pass: "{{ ipa_pass }}"
+#      state: present
+#      zone_name: "jbho.me"
+#      record_name: "{{ shortname }}"
+#      record_type: 'A'
+#      record_value: "{{ netid.ip }}"
+#      validate_certs: no
+#    delegate_to: localhost
+#
+#  - name: Add reverse entry to IPA
+#    ipa_dnsrecord:
+#      ipa_host: "{{ ipa_host }}"
+#      ipa_user: "{{ ipa_user }}"
+#      ipa_pass: "{{ ipa_pass }}"
+#      state: present
+#      zone_name: "0.1.10.in-addr.arpa"
+#      record_name: '{{ netid.ip.split(".")[-1] }}'
+#      record_type: 'PTR'
+#      record_value: '{{ shortname }}.{{ domain }}.'
+#      validate_certs: no
+#    delegate_to: localhost
+
+  - name: Emit proper ks.cfg
+    template:
+      dest: "{{ minor }}/ks.cfg"
+      src: kickstart-{{ minor }}.j2
+    delegate_to: localhost
+    when: 
+      - virt_plat != 'satellite' 
+      - virt_plat != 'proxsat'
+  
+  - name: Generate ISO
+    shell: 'mkisofs -o /tmp/{{ shortname }}.{{ domain }}.iso -b isolinux/isolinux.bin -J -R -l -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e images/efiboot.img -no-emul-boot -V "KSINSTALLER" -graft-points {{ minor }} '
+    args:
+      creates: "/tmp/{{ shortname }}.{{ domain }}.iso"
+    delegate_to: localhost
+    when: 
+      - virt_plat != 'satellite'
+      - virt_plat != 'proxsat'
+      - minor != 10.0
+    
+  - name: Generate ISO
+    shell: 'mkisofs -o /tmp/{{ shortname }}.{{ domain }}.iso -J -R -l -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -b boot/grub2/i386-pc/lnxboot.img -no-emul-boot -eltorito-boot boot/grub2/i386-pc/boot.img -V "KSINSTALLER" -graft-points {{ minor }} '
+    args:
+      creates: "/tmp/{{ shortname }}.{{ domain }}.iso"
+    delegate_to: localhost
+    when: 
+      - virt_plat != 'satellite'
+      - virt_plat != 'proxsat'
+      - minor == 10.0
+  
+  - name: Cleanup ks.cfg
+    file:
+      path: "{{ minor }}/ks.cfg"
+      state: absent
+    delegate_to: localhost
+    when: 
+      - virt_plat != 'satellite' 
+      - virt_plat != 'proxsat'
+
+- name: Deploy VM(s)
+  hosts: all
+  gather_facts: false
+
+  tasks:
+  - name: Do the deploy
+    block:
+      - name: Deploy VM
+        ansible.builtin.include_role: 
+          name: deploy-vmware
+        when: virt_plat == 'vmware'
+    
+      - name: Deploy Satellite Host
+        ansible.builtin.include_role:
+          name: deploy-sathost
+        when: virt_plat == 'satellite'
+    
+      - name: Deploy Proxmox host
+        ansible.builtin.include_role:
+          name: deploy-proxmox
+        when: virt_plat == 'proxmox'
+
+      - name: Deploy Satellite-provisioned Proxmox host
+        ansible.builtin.include_role:
+          name: deploy-proxsat
+        when: virt_plat == 'proxsat'
+    throttle: 1
+    
+#  - name: Wait for connection to installed server
+#    wait_for_connection: 
+#      delay: 150
+#      timeout: 1800
+#      sleep: 10
+#
+#  - name: Gather facts from newly installed server
+#    setup:
+#
+#  - name: Generate registration command
+#    redhat.satellite.registration_command:
+#      username: "{{ satAdmin }}"
+#      password: "{{ satPass }}"
+#      server_url: "https://satellite.jbho.me"
+#      activation_keys: "{{ activationkey }}"
+#      hostgroup: "{{ hostgroup }}"
+#      insecure: true
+#      validate_certs: false
+#      setup_insights: true
+#      setup_remote_execution: true
+#      update_packages: true
+#      organization: "NCP"
+#    register: command
+#    delegate_to: localhost
+#
+#  - name: "Perform registration"
+#    ansible.builtin.shell:
+#      cmd: "{{ command.registration_command }}"
+#
+#  - name: Install NFS utils package
+#    yum:
+#      name: nfs-utils
+#      state: present
+#
+#  - name: Install libsemanage-python
+#    yum:
+#      name: libsemanage-python
+#      state: present
+#    when: ansible_distribution_major_version == '7'
+#
+#  - name: Install libsemanage-python RHEL 8
+#    yum:
+#      name: python3-libsemanage
+#      state: present
+#    when: ansible_distribution_major_version == '8'
+#
+#  - name: Install libsemanage-python RHEL 9
+#    yum:
+#      name: python3-libsemanage
+#      state: present
+#    when: ansible_distribution_major_version == '9'
+#
+#  - name: /etc/sudoers.d/jberning file present
+#    copy:
+#      content: "jberning ALL= (ALL) NOPASSWD: ALL"
+#      dest: /etc/sudoers.d/jberning
+#      mode: 0755
+#      owner: root
+#      group: root
+#
+#  - name: /etc/sudoers.d/ansible file present
+#    copy:
+#      content: "ansible ALL= (ALL) NOPASSWD: ALL"
+#      dest: /etc/sudoers.d/ansible
+#      mode: 0755
+#      owner: root
+#      group: root
+#
+#  - name: Enroll with IDM
+#    include_role:
+#      name: redhat.rhel_idm.ipaclient
+#
+#  - name: Ensure autofs installed
+#    yum:
+#      name: autofs
+#      state: present
+#
+#  - name: Ensure shared homedir mount points are available
+#    ansible.builtin.file:
+#      mode: 0755
+#      path: "{{ item }}"
+#      state: directory
+#    loop:
+#      - /nfshome
+#      - /hahome
+#
+#  - name: Turn on NFS sebools
+#    ansible.posix.seboolean:
+#      name: "{{ item }}"
+#      persistent: true
+#      state: true
+#    loop:
+#      - httpd_use_nfs
+#      - use_nfs_home_dirs
+#
+#  - name: Ensure autofs is started
+#    ansible.builtin.systemd_service:
+#      enabled: true
+#      name: autofs
+#      state: started
+#

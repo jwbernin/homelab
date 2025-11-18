@@ -1,0 +1,120 @@
+---
+- name: Build Satellite from a newly-installed (minimal) RHEL server
+  hosts: all
+
+  tasks:
+    - name: Ensure Satellite availability
+      block:
+        - name: Check on Satellite availability
+          uri:
+            url: "https://{{ ansible_hostname }}/"
+            validate_certs: no
+            status_code:
+              - 200
+              - 301
+ 
+      rescue:
+        - name: Ensure sdb1 exists
+          parted:
+            device: /dev/sdb
+            label: gpt
+            number: 1
+            state: present
+    
+        - name: Ensure satvg is present
+          lvg:
+            pvs: /dev/sdb1
+            vg: satvg
+  
+        - name: Ensure logical volumes are created
+          lvol:
+            lv: "{{ item.name }}"
+            size: "{{ item.size }}"
+            vg: satvg
+          loop:
+            - name: varcachepulp
+              size: 20G
+            - name: varlibpulp
+              size: 2T
+            - name: varlibpgsql
+              size: 10G
+            - name: varspoolsquid
+              size: 10G
+            - name: varlibcontainers
+              size: 50G
+  
+        - name: Ensure filesystems exist
+          filesystem:
+            fstype: xfs
+            dev: "/dev/mapper/satvg-{{ item }}"
+          loop:
+            - varcachepulp
+            - varlibpulp
+            - varlibpgsql
+            - varspoolsquid
+            - varlibcontainers
+    
+        - name: Ensure filesystems mounted
+          mount: 
+            fstype: xfs
+            path: "{{ item.path }}"
+            state: mounted
+            src: "/dev/mapper/satvg-{{ item.dev }}"
+          loop:
+            - dev: varcachepulp
+              path: /var/cache/pulp
+            - dev: varlibpulp
+              path: /var/lib/pulp
+            - dev: varlibpgsql
+              path: /var/lib/pgsql
+            - dev: varspoolsquid
+              path: /var/spool/squid
+            - dev: varlibcontainers
+              path: /var/lib/containers
+  
+        - name: Ensure we have the proper repos for Sat6.18
+          rhsm_repository:
+            purge: yes
+            name:
+              - rhel-9-for-x86_64-baseos-rpms
+              - rhel-9-for-x86_64-appstream-rpms
+              - satellite-6.18-for-rhel-9-x86_64-rpms
+              - satellite-maintenance-6.18-for-rhel-9-x86_64-rpms
+  
+        - name: Ensure base OS is fully updated
+          yum:
+            name: "*"
+            state: latest
+
+        - name: Ensure required Satellite packages are installed
+          yum:
+            state: present
+            name: "{{ item }}"
+          loop:
+            - satellite
+            - chrony
+            - sos
+    
+        - name: Open Satellite firewall
+          firewalld:
+            immediate: yes
+            permanent: yes
+            service: RH-Satellite-6
+            state: enabled
+  
+        - name: Remove 8. nameserver entry to /etc/resolv.conf
+          lineinfile:
+            line: "nameserver 8.8.8.8"
+            state: absent
+            path: /etc/resolv.conf
+
+        - name: Add correct nameserver entry to /etc/resolv.conf
+          lineinfile:
+            line: "nameserver 10.1.0.6"
+            state: present
+            path: /etc/resolv.conf
+
+
+        - name: Run initial configuration
+          command: "satellite-installer --scenario satellite --foreman-initial-organization {{ satOrg }} --foreman-initial-location {{ satLoc }} --foreman-initial-admin-username {{ satAdmin }} --foreman-initial-admin-password {{ satPass }}"
+  

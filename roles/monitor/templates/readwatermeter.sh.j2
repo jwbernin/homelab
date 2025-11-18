@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Gather data from water meter(s)
+{% for host in groups['watermeter'] %}
+  {% for meter in meterids %}
+/root/bin/readwatermeter.py {{ meter }}
+  {% endfor %}
+{% endfor %}
+
+

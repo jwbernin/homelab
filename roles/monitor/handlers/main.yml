@@ -1,0 +1,3 @@
+---
+- name: restart nagios
+  include_tasks: tasks/restart_nagios.yml

@@ -1,0 +1,24 @@
+<?php
+
+$filename = "/var/lib/groves/watermeter-1547149398.sql";
+
+$db = new SQLite3($filename);
+
+$query = "select hour, last_difference from byhour order by id desc limit 24";
+$resultWaterUse = $db->query($query);
+
+$numResults = max(24, $resultWaterUse->numColumns());
+
+$data = array();
+$index=0;
+while ( $index < $numResults ) {
+  $water = $resultWaterUse->fetchArray();
+  $newRow = array();
+  $newRow['hour'] = sprintf("%d:00", $water['hour']);
+  $newRow['waterUse'] = $water['last_difference'];
+  array_push($data, $newRow);
+  $index++;
+}
+
+echo json_encode($data);
+?>

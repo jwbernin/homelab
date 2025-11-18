@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Gather data from controller(s)
+{% for host in groups['controller'] %}
+  {% for datapoint in controller_datapoints %}
+val=$(ssh pi@{{ host }} sudo /usr/local/bin/get{{ datapoint }}.py)
+rrdtool update /var/lib/groves/{{ host }}.{{ datapoint }}.rrd N:${val}
+  {% endfor %}
+{% endfor %}
+
+# Gather data from sensor(s)
+{% for host in groups['pond'] %}
+  {% for datapoint in pond_datapoints %}
+val=$(ssh pi@{{ host }} sudo /usr/local/bin/get{{ datapoint }}.py)
+rrdtool update /var/lib/groves/{{ host }}.{{ datapoint }}.rrd N:${val}
+  {% endfor %}
+{% endfor %}
+
+# Gather data from garden bed(s)
+{% for host in groups['gardenbeds'] %}
+  {% for datapoint in sensor_datapoints %}
+val=$(ssh pi@{{ host }} sudo /usr/local/bin/get{{ datapoint }}.py)
+rrdtool update /var/lib/groves/{{ host }}.{{ datapoint }}.rrd N:${val}
+  {% endfor %}
+{% endfor %}

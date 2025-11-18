@@ -1,0 +1,36 @@
+<?php
+
+$sensor = $_GET['sensor'];
+
+$filename = "/var/lib/groves/".$sensor.".sql";
+
+$db = new SQLite3($filename);
+
+$query = "select hour, reading from AirTempbyhour order by id desc limit 24";
+$resultAirTemp = $db->query($query);
+
+$query = "select hour,reading from Pressurebyhour order by id desc limit 24";
+$resultPressure = $db->query($query);
+
+$query = "select hour,reading from Humiditybyhour order by id desc limit 24";
+$resultHumidity = $db->query($query);
+$numResults = max(24, $resultAirTemp->numColumns());
+
+
+$data = array();
+$index=0;
+while ( $index < $numresults ) {
+  $air = $resultAirTemp->fetchArray();
+  $pressure = $resultPressure->fetchArray();
+  $humidity = $resultHumidity->fetchArray();
+  $newRow = array();
+  $newRow['hour'] = $air['hour'];
+  $newRow['airTemp'] = 32+($air['reading']*9/5);
+  $newRow['pressure'] = $pressure['reading'];
+  $newRow['humidity'] = $humidity['reading'];
+  array_push($data, $newRow);
+  $index++;
+}
+
+echo json_encode($data);
+?>

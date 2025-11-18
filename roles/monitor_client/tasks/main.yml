@@ -1,0 +1,74 @@
+---
+# tasks file for monitor_client
+- name: Ensure EPEL 7 repository enabled
+  rhsm_repository:
+    name: NCP_EPEL_epel7
+  when: ansible_distribution_major_version == '7'
+  tags:
+    - nagios
+
+- name: Ensure EPEL 8 repository enabled
+  rhsm_repository:
+    name: NCP_EPEL_epel8
+  when: ansible_distribution_major_version == '8'
+  tags:
+    - nagios
+
+- name: Ensure EPEL 9 repository enabled
+  rhsm_repository:
+    name: NCP_EPEL_epel9
+  when: ansible_distribution_major_version == '9'
+  tags:
+    - nagios
+
+- name: Install NRPE client
+  dnf:
+    name: nrpe
+    state: present
+  tags:
+    - nagios
+
+- name: Open NRPE firewall port
+  firewalld:
+    immediate: yes
+    permanent: yes
+    port: 5666/tcp
+    state: enabled
+  tags:
+    - nagios
+
+- name: Ensure NRPE config files present
+  template:
+    dest: "/etc/nrpe.d/{{ item }}.cfg"
+    src: "{{ item }}.cfg.j2"
+  loop:
+    - check_slash
+    - check_var
+  tags:
+    - nagios
+
+- name: Ensure rhea is allowed by NRPE
+  lineinfile:
+    path: /etc/nagios/nrpe.cfg
+    regexp: '^allowed_hosts='
+    line: allowed_hosts=127.0.0.1,::1,10.1.0.26
+  tags:
+    - nagios
+
+- name: Start NRPE service
+  systemd:
+    enabled: yes
+    name: nrpe
+    state: started
+  tags:
+    - nagios
+
+- name: Install check_disk plugin if necessary
+  dnf:
+    name: nagios-plugins-disk
+    state: present
+  when:
+    - check_slash is defined or
+      check_var is defined
+  tags:
+    - nagios

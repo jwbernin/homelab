@@ -1,0 +1,833 @@
+---
+- name: Enable the php:7.3 module
+  dnf: 
+    name: '@php:7.3'
+    state: present
+
+- name: Ensure nagios and selected other packages are present
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - nagios
+    - nagios-plugins
+    - nagios-plugins-by_ssh
+    - nagios-plugins-disk
+    - nagios-plugins-dns
+    - nagios-plugins-fping
+    - nagios-plugins-http
+    - nagios-plugins-load
+    - nagios-plugins-nrpe
+    - nagios-plugins-ping
+    - nagios-plugins-procs
+    - nagios-plugins-ssh
+    - nagios-plugins-swap
+    - nagios-plugins-time
+    - nagios-plugins-uptime
+    - nagios-plugins-users
+    - python3-passlib
+    - rrdtool
+    - certbot
+    - python3-certbot-dns-linode
+    - mod_ssl
+    - httpd
+    - php-pdo
+    - php-pecl-rrd
+    - sqlite
+    - npm
+    - python3-dnslib
+    - python3-py3dns
+    - nfs-utils
+
+- name: Create Nagios hosts directory
+  file:
+    setype: nagios_etc_t
+    path: /etc/nagios/hosts
+    state: directory
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Configure Nagios to read from new hosts directory
+  lineinfile:
+    line: "cfg_dir=/etc/nagios/hosts"
+    path: /etc/nagios/nagios.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Remove upstream localhost definition from Nagios monitoring
+  lineinfile:
+    path: /etc/nagios/nagios.cfg
+    regexp: 'cfg_file=/etc/nagios/objects/localhost.cfg'
+    line: '#cfg_file=/etc/nagios/objects/localhost.cfg'
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Deploy Nagios contacts file
+  template:
+    dest: /etc/nagios/objects/contacts.cfg
+    setype: nagios_etc_t
+    src: contacts.cfg.j2
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Deply Nagios hostgroups file
+  template:
+    dest: /etc/nagios/hosts/hostgroups.cfg
+    setype: nagios_etc_t
+    src: hostgroups.cfg.j2
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Deploy Nagios hosts files
+  template:
+    setype: nagios_etc_t
+    src: host.cfg.j2
+    dest: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+<<<<<<< HEAD
+  loop: "{{ query('inventory_hostnames', 'virtinfra:switches:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:automationplatform:network:hacluster:shed:certs:allrpis:cameras:homeimportant:homemisc') }}"
+=======
+  loop: "{{ query('inventory_hostnames', 'switches:wifi:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:automationplatform:network:hacluster:shed:certs:allrpis:cameras:homeimportant') }}"
+>>>>>>> b40c634 (Lots of updates)
+  loop_control:
+    loop_var: nagios_hostname
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Add SSH check block to hosts files where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     SSH
+        check_command           check_ssh
+      }
+    marker: "# {mark} Adding SSH check block"
+    state: present
+<<<<<<< HEAD
+  loop: "{{query('inventory_hostnames', 'virtinfra:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant:homemisc') }}"
+=======
+  loop: "{{query('inventory_hostnames', 'watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant') }}"
+>>>>>>> b40c634 (Lots of updates)
+  loop_control:
+    loop_var: nagios_hostname
+  when: hostvars[nagios_hostname]['nossh'] is not defined
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Add HTTP checker block to hosts files where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     HTTP
+        check_command           check_http
+      }
+    marker: "# {mark} Adding HTTP check block"
+    state: present
+<<<<<<< HEAD
+  loop: "{{query('inventory_hostnames', 'virtinfra:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:cameras:homeimportant:homemisc') }}"
+=======
+  loop: "{{query('inventory_hostnames', 'watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:cameras:homeimportant') }}"
+>>>>>>> b40c634 (Lots of updates)
+  loop_control:
+    loop_var: nagios_hostname
+  when: hostvars[nagios_hostname]['hashttp'] is defined
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Add HTTPS checker block to hosts files where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     HTTPS
+        check_command           check_https!{{ hostvars[nagios_hostname]['https_uri'] | default ('') }}
+      }
+    marker: "# {mark} Adding HTTPS check block"
+    state: present
+<<<<<<< HEAD
+  loop: "{{query('inventory_hostnames', 'virtinfra:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant:homemisc') }}"
+=======
+  loop: "{{query('inventory_hostnames', 'watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant') }}"
+>>>>>>> b40c634 (Lots of updates)
+  loop_control:
+    loop_var: nagios_hostname
+  when: hostvars[nagios_hostname]['hashttps'] is defined and hostvars[nagios_hostname]['hashttps'] == true
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Add LDAP checker block to hosts files where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     LDAP
+        check_command           check_ldap
+      }
+    marker: "# {mark} Adding LDAP check block"
+    state: present
+<<<<<<< HEAD
+  loop: "{{query('inventory_hostnames', 'virtinfra:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant:homemisc') }}"
+=======
+  loop: "{{query('inventory_hostnames', 'watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant') }}"
+>>>>>>> b40c634 (Lots of updates)
+  loop_control:
+    loop_var: nagios_hostname
+  when: '"ldap" in hostvars[nagios_hostname].ports'
+  notify: restart nagios
+<<<<<<< HEAD
+=======
+  ignore_errors: true
+>>>>>>> b40c634 (Lots of updates)
+  tags:
+    - nagios
+
+- name: Add LDAPS checker block to hosts files where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     LDAPS
+        check_command           check_ldaps
+      }
+<<<<<<< HEAD
+    marker: "# {mark} Adding HTTPS check block"
+    state: present
+  loop: "{{query('inventory_hostnames', 'virtinfra:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant:homemisc') }}"
+=======
+    marker: "# {mark} Adding LDAPS check block"
+    state: present
+  loop: "{{query('inventory_hostnames', 'watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant') }}"
+>>>>>>> b40c634 (Lots of updates)
+  loop_control:
+    loop_var: nagios_hostname
+  when: '"ldaps" in hostvars[nagios_hostname].ports'
+  notify: restart nagios
+<<<<<<< HEAD
+  tags:
+    - nagios
+
+- name: Add Non-standard HTTP port checkers where appropriate
+  include_tasks: 
+    file: add_nonstd_web_ports.yml
+    apply:
+      tags:
+        - nagios
+  loop: "{{query('inventory_hostnames', 'virtinfra:watermeter:groves:controller:pond:garden:notlab:auth:satprod:nas:certs:automationplatform:network:hacluster:allrpis:homeimportant:homemisc') }}"
+  loop_control:
+    loop_var: nagios_hostname
+  when:
+    - hostvars[nagios_hostname].webports is defined
+    - hostvars[nagios_hostname]['webports'] | length > 0
+=======
+  ignore_errors: true
+>>>>>>> b40c634 (Lots of updates)
+  tags:
+    - nagios
+
+- name: Add water usage check where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     Water Usage
+        check_command           getWaterUsageHour
+      }
+    marker: "# {mark} Adding water usage check block"
+    state: present
+  loop: "{{query('inventory_hostnames', 'watermeter') }}"
+  loop_control:
+    loop_var: nagios_hostname
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Add / filesystem checks where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     Disk space - root fs
+        check_command           check_nrpe!check_slash
+      }
+    marker: "# {mark} Adding root fs check block"
+    state: present
+  loop: "{{query('inventory_hostnames', 'notlab:homeimportant:homemisc:auth:satellite:dns:certs:hacluster:monitor') }}"
+  loop_control:
+    loop_var: nagios_hostname
+  when: hostvars[nagios_hostname]['check_slash'] is defined
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Add /var filesystem checks where appropriate
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     Disk space - /var fs
+        check_command           check_nrpe!check_var
+      }
+    marker: "# {mark} Adding var fs check block"
+    state: present
+  loop: "{{query('inventory_hostnames', 'notlab:homeimportant:homemisc:auth:satellite:dns:certs:hacluster:monitor') }}"
+  loop_control:
+    loop_var: nagios_hostname
+  when: hostvars[nagios_hostname]['check_var'] is defined
+  notify: restart nagios
+  tags:
+    - nagios
+    
+- name: Deply Nagios command block
+  blockinfile:
+    block: |
+      define command {
+              command_name       reboot-pi
+              command_line       /root/bin/bouncePoePort.sh $ARG1$ $ARG2$ $ARG3$ $HOSTSTATE$ $HOSTSTATETYPE$ $HOSTATTEMPT$
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - reboot-pi"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Deploy Nagios water meter command block
+  blockinfile:
+    block: |
+      define command {
+              command_name       getWaterUsageHour
+              command_line       $USER1$/getLastHourWaterUse.sh
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - getWaterUsage"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Deploy HTTPS check command
+  blockinfile:
+    block: |
+      define command {
+              command_name       check_https
+              command_line       $USER1$/check_http -H $HOSTADDRESS$ -p 443 --no-body -S $ARG1$
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - check_https"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+
+<<<<<<< HEAD
+- name: Deploy non-standard web port check command
+  blockinfile:
+    block: |
+      define command {
+              command_name       check_http_other
+              command_line       $USER1$/check_http -H $HOSTADDRESS$ -p $ARG1$ --no-body -S $ARG2$
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - non-standard check_http"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+
+
+
+=======
+>>>>>>> b40c634 (Lots of updates)
+- name: Deploy LDAP check command
+  blockinfile:
+    block: |
+      define command {
+              command_name       check_ldap
+              command_line       $USER1$/check_ldap -H $HOSTADDRESS$ -b "dc=jbho,dc=me"
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - check_ldap"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Deploy LDAPS check command
+  blockinfile:
+    block: |
+      define command {
+              command_name       check_ldaps
+              command_line       $USER1$/check_ldaps -H $HOSTADDRESS$ -b "dc=jbho,dc=me" -p 636
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - check_ldaps"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+<<<<<<< HEAD
+
+- name: Deploy NRPE check command
+  blockinfile:
+    block: |
+      define command {
+              command_name      check_nrpe
+              command_line      $USER1$/check_nrpe -H $HOSTADDRESS$ -c $ARG1$
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - check_nrpe"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+=======
+>>>>>>> b40c634 (Lots of updates)
+
+- name: Ensure /root/bin exists
+  file:
+    state: directory
+    path: /root/bin
+
+- name: Deply Nagios handler to bounce PoE port
+  copy:
+    src: bouncePoePort.sh
+    dest: /root/bin/bouncePoePort.sh
+    mode: 0755
+  tags:
+    - nagios
+
+- name: Deploy Nagios checker for water usage
+  copy:
+    src: getLastHourWaterUse.sh
+    dest: /usr/lib64/nagios/plugins/
+    mode: 0755
+    setype: nagios_unconfined_plugin_exec_t
+    serole: object_r
+    seuser: system_u
+  tags:
+    - nagios
+
+- name: Open firewall for Apache
+  firewalld:
+    immediate: yes
+    permanent: yes
+    service: "{{ item }}"
+    state: enabled
+  loop:
+    - http
+    - https
+
+- name: Ensure Nagios admin user present
+  htpasswd:
+    name: "{{ nagios_apache_username }}"
+    password: "{{ nagios_apache_password }}"
+    path: /etc/nagios/passwd
+    state: present
+  notify: restart nagios
+  tags:
+    - nagios
+
+- name: Enable and start Apache
+  systemd:
+    enabled: yes
+    name: httpd
+    state: started
+  tags:
+    - nagios
+
+- name: Create directory for RRD files / SQLite DBs
+  file:
+    state: directory
+    path: /var/lib/groves
+    setype: var_lib_t
+  tags:
+    - rrds
+    - dbs
+
+- name: Mount NFS data dir for groves
+  ansible.posix.mount:
+    fstype: nfs
+    opts: "_netdev"
+    path: /var/lib/groves
+    src: "{{ grove_datadir }}"
+    state: mounted
+
+- name: Create RRDs for controller grove
+  # 15 days of every-5-minutes measurements
+  # 365 days of hourly averages
+  # 5 years of highs
+  # 5 years of lows
+  command:
+    cmd: "rrdtool create /var/lib/groves/{{ item.0 }}.{{ item.1 }}.rrd --step 300 DS:{{ item.1 }}:GAUGE:600:-INF:INF RRA:AVERAGE:0.5:1:4320 RRA:AVERAGE:0.5:12:8760 RRA:MIN:0.5:288:1825 RRA:MAX:0.5:288:1825"
+    creates: "/var/lib/groves/{{ item.0 }}.{{ item.1 }}.rrd"
+  loop: "{{ query('inventory_hostnames', 'controller') | product(controller_datapoints) | list }}"
+  tags:
+    - rrds
+
+- name: Ensure proper permissions on controller RRDs
+  file:
+    mode: 0644
+    setype: httpd_sys_content_t
+    path: "/var/lib/groves/{{ item.0 }}.{{ item.1 }}.rrd"
+  loop: "{{ query('inventory_hostnames', 'controller') | product(controller_datapoints) | list }}"
+  tags:
+    - rrds
+
+- name: Create pond RRD files
+  # 15 days of every-5-minutes measurements
+  # 365 days of hourly averages
+  # 5 years of highs
+  # 5 years of lows
+  command:
+    cmd: "rrdtool create /var/lib/groves/{{ item.0 }}.{{ item.1 }}.rrd --step 300 DS:{{ item.1 }}:GAUGE:600:-INF:INF RRA:AVERAGE:0.5:1:4320 RRA:AVERAGE:0.5:12:8760 RRA:MIN:0.5:288:1825 RRA:MAX:0.5:288:1825"
+    creates: "/var/lib/groves/{{ item.0 }}.{{ item.1 }}.rrd"
+  loop: "{{ query('inventory_hostnames', 'pond') | product(pond_datapoints) | list }}"
+  tags:
+    - rrds
+
+- name: Ensure proper permissions on pond sensor RRDs
+  file:
+    mode: 0644
+    setype: httpd_sys_content_t
+    path: "/var/lib/groves/{{ item.0 }}.{{ item.1 }}.rrd"
+  loop: "{{ query('inventory_hostnames', 'pond') | product(pond_datapoints) | list }}"
+  tags:
+    - rrds
+
+- name: Create SQLite DB for water meter(s)
+  shell:
+    cmd: |
+      sqlite3 /var/lib/groves/watermeter-{{ item }}.sql 'create table if not exists byhour (id integer primary key asc, year integer, month integer, week integer, day integer, hour tinyint, backflow integer, consumption integer, leak integer, leaknow integer, lastconsumption integer, last_difference integer, UNIQUE(year, month, day, hour));'
+      sqlite3 /var/lib/groves/watermeter-{{ item }}.sql 'create table if not exists byday (id integer primary key asc, year integer, month integer, week integer, day integer, backflow integer, consumption integer, leak integer, leaknow integer, lastconsumption integer, last_difference integer, UNIQUE(year, month, day));'
+      sqlite3 /var/lib/groves/watermeter-{{ item }}.sql 'create table if not exists byweek (id integer primary key asc, year integer, week integer, backflow integer, consumption integer, leak integer, leaknow integer, lastconsumption integer, last_difference integer, UNIQUE(year, week));'
+      sqlite3 /var/lib/groves/watermeter-{{ item }}.sql 'create table if not exists bymonth (id integer primary key asc, year integer, month integer, backflow integer, consumption integer, leak integer, leaknow integer, lastconsumption integer, last_difference integer, UNIQUE(year, month));'
+  loop: "{{ water_meterids }}"
+  tags:
+    - dbs
+
+- name: Create SQLite DBs for controller sensor points
+  shell:
+    cmd: |
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byhour (id integer primary key asc, year integer, month integer, week integer, day integer, hour tinyint, reading float, UNIQUE(year, month, day, hour));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byday (id integer primary key asc, year integer, month integer, week integer, day integer, high float, low float, mean float, stddev float, UNIQUE(year, month, day));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byweek (id integer primary key asc, year integer, week integer, high float, low float, mean float, stddev float, UNIQUE(year, week));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}bymonth (id integer primary key asc, year integer, month integer, high float, low float, mean float, stddev float, UNIQUE(year, month));'
+  loop: "{{ query('inventory_hostnames', 'controller') | product(controller_datapoints) | list }}"
+  tags:
+    - dbs
+
+- name: Create SQLite DBs for pond sensor points
+  shell:
+    cmd: |
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byhour (id integer primary key asc, year integer, month integer, week integer, day integer, hour tinyint, reading float, UNIQUE(year, month, day, hour));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byday (id integer primary key asc, year integer, month integer, week integer, day integer, high float, low float, mean float, stddev float, UNIQUE(year, month, day));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byweek (id integer primary key asc, year integer, week integer, high float, low float, mean float, stddev float, UNIQUE(year, week));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}bymonth (id integer primary key asc, year integer, month integer, high float, low float, mean float, stddev float, UNIQUE(year, month));'
+  loop: "{{ query('inventory_hostnames', 'pond') | product(pond_datapoints) | list }}"
+  tags:
+    - dbs
+
+- name: Create SQLite DBs for bed sensors
+  shell:
+    cmd: |
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byhour (id integer primary key asc, year integer, month integer, week integer, day integer, hour tinyint, reading float, UNIQUE(year, month, day, hour));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byday (id integer primary key asc, year integer, month integer, week integer, day integer, high float, low float, mean float, stddev float, UNIQUE(year, month, day));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}byweek (id integer primary key asc, year integer, week integer, high float, low float, mean float, stddev float, UNIQUE(year, week));'
+      sqlite3 /var/lib/groves/{{ item.0 }}.sql 'create table if not exists {{ item.1 }}bymonth (id integer primary key asc, year integer, month integer, high float, low float, mean float, stddev float, UNIQUE(year, month));'
+  loop: "{{ query('inventory_hostnames', 'gardenbeds') | product(sensor_datapoints) | list }}"
+  tags:
+    - dbs
+
+- name: Ensure proper permissions on meter DBs
+  file:
+    mode: 0644
+    setype: httpd_sys_content_t
+    path: "/var/lib/groves/watermeter-{{ item }}.sql"
+  loop: "{{ water_meterids }}"
+  tags:
+    - dbs
+
+- name: Ensure proper permissions on grove DBs
+  file:
+    mode: 0644
+    setype: httpd_sys_content_t
+    path: "/var/lib/groves/{{ item }}.sql"
+  loop: "{{ query('inventory_hostnames', 'controller') }}"
+  tags:
+    - dbs
+
+- name: Ensure proper permissions on pond DBs
+  file:
+    mode: 0644
+    setype: httpd_sys_content_t
+    path: "/var/lib/groves/{{ item }}.sql"
+  loop: "{{ query('inventory_hostnames', 'pond') }}"
+  tags:
+    - dbs
+
+- name: Ensure proper permissions on bed sensor DBs
+  file:
+    mode: 0644
+    setype: httpd_sys_content_t
+    path: "/var/lib/groves/{{ item }}.sql"
+  loop: "{{ query('inventory_hostnames', 'gardenbeds') }}"
+  tags:
+    - dbs
+
+
+- name: Ensure controller has a valid .ssh directory
+  file:
+    path: /root/.ssh
+    setype: ssh_home_t
+    state: directory
+    mode: 0700
+  tags:
+    - keys
+
+- name: Ensure controller has a valid SSH key
+  command:
+    cmd: "ssh-keygen -q -b 256 -t ecdsa -N '' -f /root/.ssh/id_ecdsa"
+    creates: /root/.ssh/id_ecdsa
+  tags:
+    - keys
+
+- name: Fetch controller public key
+  fetch:
+    src: /root/.ssh/id_ecdsa.pub
+    dest: "buffer/{{ ansible_hostname }}-id_ecdsa.pub"
+    flat: yes
+  tags:
+    - keys
+
+- name: Deploy SSH pubkey
+  authorized_key:
+    state: present
+    user: pi
+    key: "{{ lookup('file','buffer/{{ ansible_hostname }}-id_ecdsa.pub')}}"
+  delegate_to: "{{ item }}"
+  loop:
+    "{{ query('inventory_hostnames', 'watermeter:controller:pond:gardenpis:groves') }}"
+  tags:
+    - keys
+
+- name: Ensure host keys present in known hosts file
+  known_hosts:
+    name: "{{ item }}"
+    path: /root/.ssh/known_hosts
+    key: "{{ lookup('pipe', 'ssh-keyscan -4 -t ecdsa {{ item }} ') }}"
+  loop:
+    "{{ query('inventory_hostnames', 'watermeter:controller:pond:gardenpis') }}"
+  tags:
+    - keys
+
+- name: Ensure directory for data sampling script exists
+  file:
+    path: /root/bin
+    mode: 0755
+    setype: admin_home_t
+    state: directory
+
+- name: Ensure data gathering script is deployed to monitor
+  template:
+    dest: /root/bin/samplegroves.sh
+    src: datagather.sh.j2
+    mode: 0755
+
+- name: Ensure cron job exists to collect RRD data regularly
+  cron:
+    name: "gather grove sensor data"
+    minute: "*/5"
+    job: "/root/bin/samplegroves.sh"
+
+- name: Deploy data gathering scripts
+  copy:
+    src: "{{ item }}"
+    dest: "/root/bin/{{ item }}"
+    mode: 0755
+  loop:
+    - readwatermeter.py
+    - readgrove.py
+    - consolidateGrove.py
+
+- name: Generate hourly cron job to read water meter
+  ansible.builtin.cron:
+    name: "hourly water meter"
+    minute: "1"
+    job: "/root/bin/readwatermeter.py 1547149398 hour"
+  tags:
+    - cron
+
+- name: Generate daily cron job to read water meter
+  ansible.builtin.cron:
+    name: "daily water meter"
+    minute: "6"
+    hour: "0"
+    job: "/root/bin/readwatermeter.py 1547149398 day"
+  tags:
+    - cron
+
+- name: Generate week cron job to read water meter
+  ansible.builtin.cron:
+    name: "weekly water meter"
+    minute: "12"
+    hour: "0"
+    weekday: "0"
+    job: "/root/bin/readwatermeter.py 1547149398 week"
+  tags:
+    - cron
+
+- name: Generate monthly cron job to read water meter
+  ansible.builtin.cron:
+    name: "monthly water meter"
+    minute: "31"
+    hour: "0"
+    day: "1"
+    job: "/root/bin/readwatermeter.py 1547149398 month"
+  tags:
+    - cron
+
+- name: Hourly controller cron jobs
+  ansible.builtin.cron:
+    name: "Hourly grove reading - {{ item.0 }} {{ item.1 }}"
+    minute: "3"
+    job: "/root/bin/readgrove.py {{ item.0 }} {{ item.1 }} hour"
+  loop:
+    "{{ query('inventory_hostnames', 'controller') |  product(controller_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Hourly garden bed cron jobs
+  ansible.builtin.cron:
+    name: "Hourly grove reading - {{ item.0 }} {{ item.1 }}"
+    minute: "3"
+    job: "/root/bin/readgrove.py {{ item.0 }} {{ item.1 }} hour"
+  loop:
+    "{{ query('inventory_hostnames', 'gardenbeds') |  product(sensor_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Controller daily data consolidation jobs
+  ansible.builtin.cron:
+    name: "Daily grove data consolidation - {{ item.0 }} {{ item.1 }}"
+    minute: "20"
+    hour: "0"
+    job: "/root/bin/consolidateGrove.py {{ item.0 }} {{ item.1 }} day"
+  loop:
+    "{{ query('inventory_hostnames', 'controller') | product(controller_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Controller weekly data consolidation jobs
+  ansible.builtin.cron:
+    name: "Weekly grove data consolidation - {{ item.0 }} {{ item.1 }}"
+    minute: "25"
+    hour: "0"
+    weekday: "0"
+    job: "/root/bin/consolidateGrove.py {{ item.0 }} {{ item.1 }} week"
+  loop:
+    "{{ query('inventory_hostnames', 'controller') | product(controller_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Controller monthly data consolidation jobs
+  ansible.builtin.cron:
+    name: "Monthly grove data consolidation - {{ item.0 }} {{ item.1 }}"
+    minute: "35"
+    hour: "0"
+    day: "1"
+    job: "/root/bin/consolidateGrove.py {{ item.0 }} {{ item.1 }} month"
+  loop:
+    "{{ query('inventory_hostnames', 'controller') | product(controller_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Hourly pond cron jobs
+  ansible.builtin.cron:
+    name: "Hourly pond reading - {{ item.0 }} {{ item.1 }}"
+    minute: "3"
+    job: "/root/bin/readgrove.py {{ item.0 }} {{ item.1 }} hour"
+  loop:
+    "{{ query('inventory_hostnames', 'pond') |  product(pond_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Pond daily data consolidation jobs
+  ansible.builtin.cron:
+    name: "Daily pond data consolidation - {{ item.0 }} {{ item.1 }}"
+    minute: "20"
+    hour: "0"
+    job: "/root/bin/consolidateGrove.py {{ item.0 }} {{ item.1 }} day"
+  loop:
+    "{{ query('inventory_hostnames', 'pond') | product(pond_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Pond weekly data consolidation jobs
+  ansible.builtin.cron:
+    name: "Weekly pond data consolidation - {{ item.0 }} {{ item.1 }}"
+    minute: "25"
+    hour: "0"
+    weekday: "0"
+    job: "/root/bin/consolidateGrove.py {{ item.0 }} {{ item.1 }} week"
+  loop:
+    "{{ query('inventory_hostnames', 'pond') | product(pond_datapoints) | list }}"
+  tags:
+    - cron
+
+- name: Pond monthly data consolidation jobs
+  ansible.builtin.cron:
+    name: "Monthly pond data consolidation - {{ item.0 }} {{ item.1 }}"
+    minute: "35"
+    hour: "0"
+    day: "1"
+    job: "/root/bin/consolidateGrove.py {{ item.0 }} {{ item.1 }} month"
+  loop:
+    "{{ query('inventory_hostnames', 'pond') | product(pond_datapoints) | list }}"
+  tags:
+    - cron
+
+
+- name: Deploy PHP template pages
+  template:
+    src: "{{ item }}.j2"
+    dest: "/var/www/html/{{ item }}"
+    setype: httpd_sys_content_t
+  loop:
+    - index.php
+    - graphSensor.php
+    - controllerDetail.php
+    - sensorDetail.php
+    - pondDetail.php
+    - graphCombined.php
+    - groveCombinedData24h.php
+    - pondData24h.php
+    - watermeterData24h.php
+    - watermeterDataDay.php
+    - controllerCombinedData24h.php
+    - graphWaterMeter.php
+    - graphPond.php
+    - pondDataDay.php
+    - pondDataWeek.php
+    - pondDataMonth.php
+  tags:
+    - webpages
+

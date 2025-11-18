@@ -1,0 +1,15 @@
+---
+#roles:
+#  - name: ansible_role_bind
+#    src: git@github.com:jwbernin/ansible-role-bind.git
+#    scm: git
+
+collections:
+  - name: redhat.satellite
+  - name: community.crypto
+  - name: ansible.posix
+  - name: community.general
+  - name: community.postgresql
+  - name: redhat.rhel_idm
+  - name: community.proxmox
+  - name: ansible.utils

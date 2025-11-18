@@ -1,0 +1,31 @@
+---
+# tasks file for deploy-sathost
+- name: Create host via Satellite
+  theforeman.foreman.host:
+    build: yes
+    comment: "{{ comment }}"
+    compute_profile: "{{ compute_profile | default('2-Medium') }}"
+    compute_resource: "ESXi"
+    enabled: yes
+    hostgroup: "{{ hostgroup }}"
+    ip: "{{ netid.ip }}"
+    location: Homelab
+    name: "{{ shortname }}.{{ domain }}"
+    organization: NCP
+    provision_method: bootdisk
+    ptable: "Kickstart default"
+    state: present
+    subnet: Home
+    username: "{{ satAdmin }}"
+    password: "{{ satPass }}"
+    server_url: "https://satellite.jbho.me"
+  delegate_to: localhost
+
+- name: Power on host to start installation
+  theforeman.foreman.host_power:
+    name: "{{ shortname }}.{{ domain }}"
+    state: on
+    username: "{{ satAdmin }}"
+    password: "{{ satPass }}"
+    server_url: "https://satellite.jbho.me"
+  delegate_to: localhost

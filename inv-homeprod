@@ -1,0 +1,146 @@
+[notlab]
+loki.jbho.me ansible_user=root
+
+[homeimportant]
+piaware.jbho.me ansible_user=root
+labjump.jbho.me ansible_user=root
+aap-prod.jbho.me ansible_user=root
+
+[homemisc]
+rhea.jbho.me ansible_user=root
+rhel9.jbho.me ansible_user=root
+zoneminder.jbho.me ansible_user=root
+postgresql.jbho.me ansible_user=root
+
+[ipa]
+ipapmx1.jbho.me ansible_user=root
+ipapmx2.jbho.me ansible_user=root
+ipapmx3.jbho.me ansible_user=root
+
+[satprod]
+satellite.jbho.me ansible_user=root
+
+[satellite:children]
+satprod
+
+[dns]
+pihole.jbho.me ansible_user=root
+ipapmx1.jbho.me ansible_user=root
+ipapmx2.jbho.me ansible_user=root
+ipapmx3.jbho.me ansible_user=root
+
+[nas]
+nas.jbho.me ansible_user=jberning
+syno0.jbho.me ansible_user=jberning
+syno1.jbho.me ansible_user=jberning
+ha-syno.jbho.me
+
+[certs]
+certmgr.jbho.me ansible_user=root
+
+[workboxen]
+races.jbho.me ansible_user=root
+rhel10.jbho.me ansible_user=root
+
+[tier0:children]
+dns
+
+[tier1:children]
+satprod
+
+[tier2:children]
+certs
+workboxen
+
+[tier3:children]
+homeimportant
+
+[tier4:children]
+homemisc
+
+[network]
+gateway.jbho.me ansible_connection=network_cli ansible_user=admin
+
+[monitor]
+rhea.jbho.me ansible_user=root
+
+[controller]
+grovepi.jbho.me ansible_user=pi
+
+
+[shed]
+piaware.jbho.me ansible_user=root
+
+[test]
+grovetest.jbho.me ansible_user=pi
+
+[switches]
+desktopswitch.jbho.me
+flex-crawlspace.jbho.me
+flex-garden1.jbho.me
+flex-fence1.jbho.me
+flex-fence2.jbho.me
+gardenswitch1.jbho.me
+gameswitch.jbho.me
+coreswitch.jbho.me
+
+[wifi]
+unifiap.jbho.me
+fenceap1.jbho.me
+
+[watermeter]
+meterreader.jbho.me ansible_user=pi
+
+[pond]
+watergarden.jbho.me ansible_user=pi
+
+[utilities:children]
+watermeter
+
+[gardenpis]
+meterreader.jbho.me ansible_user=pi
+watergarden.jbho.me ansible_user=pi
+
+[groves]
+grovepi.jbho.me ansible_user=pi
+
+[cameras]
+camera1.jbho.me
+camera2.jbho.me
+beecam.jbho.me
+fencecam1.jbho.me
+
+[allrpis]
+meterreader.jbho.me ansible_user=pi
+watergarden.jbho.me ansible_user=pi
+rpi-nut.jbho.me
+rpi5-2.jbho.me
+grovepi.jbho.me ansible_user=pi
+
+[gardenswitches]
+gardenswitch1.jbho.me
+flex-crawlspace.jbho.me
+
+[garden:children]
+gardenswitches
+
+[virtinfra]
+proxmox1.jbho.me
+proxmox2.jbho.me
+proxmox3.jbho.me
+proxmox4.jbho.me
+proxmox5.jbho.me
+
+[ipaclients:children]
+notlab
+homeimportant
+homemisc
+satprod
+certs
+workboxen
+monitor
+ 
+[ipaclients:vars]
+ipaadmin_principal="{{ ipa_user }}"
+ipaadmin_password="{{ ipa_pass }}"
+force_join=yes

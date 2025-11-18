@@ -1,0 +1,23 @@
+<html>
+<head>
+<title>Grove garden sensor detail screen</title>
+<meta http-equiv="refresh" content="600">
+</head>
+<body align="center">
+<h1>Sensor - <?php echo $_GET['name']; ?></h1>
+<table align="center" width="90%">
+ <tr>
+{% for timeperiod in [ ["-1d", "Prior Day"], ["-1w", "Prior Week"], ["-1M", "Prior Month"], ["-1y", "Prior Year"] ] %}
+  <td colspan="{{ sensor_datapoints | length }}" align="center"><hr height=2></td>
+ </tr><tr>
+  <td colspan="{{ sensor_datapoints | length }}" align="center">{{ timeperiod[1] }}</td>
+ </tr><tr>
+{% for datapoint in sensor_datapoints %}
+  <td align="center"><img src="graphSensor.php?name=<?php echo $_GET['name']; ?>&sensor={{ datapoint }}&startpoint={{ timeperiod[0] }}"></a></td>
+{% endfor %}
+ </tr><tr>
+{% endfor %}
+ </tr>
+</table>
+</body>
+</html>

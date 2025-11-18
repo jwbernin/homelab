@@ -1,0 +1,26 @@
+<?php
+
+$sensor = $_GET['sensor'];
+
+$filename = "/var/lib/groves/".$sensor.".sql";
+
+$db = new SQLite3($filename);
+
+$query = "select hour, reading from WaterTempbyhour order by id desc limit 24";
+$resultWaterTemp = $db->query($query);
+
+$data = array();
+$index=0;
+$numResults = max(24, $resultWaterTemp->numColumns());
+
+while ( $index < $numResults ) {
+  $water = $resultWaterTemp->fetchArray();
+  $newRow = array();
+  $newRow['hour'] = sprintf("%d:00", $water['hour']);
+  $newRow['waterTemp'] = 32+($water['reading']*9/5);
+  array_push($data, $newRow);
+  $index++;
+}
+
+echo json_encode($data);
+?>

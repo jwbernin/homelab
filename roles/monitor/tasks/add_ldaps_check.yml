@@ -1,0 +1,13 @@
+- name: Deploy LDAPS check command
+  blockinfile:
+    block: |
+      define command {
+              command_name       check_ldaps
+              command_line       $USER1$/check_ldaps -H $HOSTADDRESS$
+             }
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - check_ldaps"
+    path: /etc/nagios/objects/commands.cfg
+  notify: restart nagios
+  tags:
+    - nagios
+

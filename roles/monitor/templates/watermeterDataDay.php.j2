@@ -1,0 +1,24 @@
+<?php
+
+$filename = "/var/lib/groves/watermeter-1547149398.sql";
+
+$db = new SQLite3($filename);
+
+$query = "select year, month, day, last_difference from byday order by id desc limit 8";
+$resultWaterUse = $db->query($query);
+
+$numresults = max ( 8, $resultWaterUse->numColumns());
+
+$data = array();
+$index=0;
+while ( $index < $numresults ) {
+  $water = $resultWaterUse->fetchArray();
+  $newRow = array();
+  $newRow['ymd'] = sprintf("%d-%d-%d", $water['year'], $water['month'], $water['day']);
+  $newRow['waterUse'] = $water['last_difference'];
+  array_push($data, $newRow);
+  $index++;
+}
+
+echo json_encode($data);
+?>

@@ -1,0 +1,30 @@
+<?php
+
+$sensor = $_GET['sensor'];
+
+$filename = "/var/lib/groves/".$sensor.".sql";
+
+$db = new SQLite3($filename);
+
+$query = "select year, week, high, low, mean, stddev from WaterTempbyweek order by id desc limit 4";
+$resultWaterTemp = $db->query($query);
+
+$numResults = min(4, $resultWaterTemp->numColumns());
+
+$data = array();
+$index=0;
+
+while ( $index < $numResults ) {
+  $water = $resultWaterTemp->fetchArray();
+  $newRow = array();
+  $newRow['yw'] = sprintf("%s week %s", $water['year'], $water['week']);
+  $newRow['high'] = 32+($water['high']*9/5);
+  $newRow['low'] = 32+($water['low']*9/5);
+  $newRow['mean'] = 32+($water['mean']*9/5);
+  $newRow['stddev'] = $water['stddev']*9/5;
+  array_push($data, $newRow);
+  $index++;
+}
+
+echo json_encode($data);
+?>

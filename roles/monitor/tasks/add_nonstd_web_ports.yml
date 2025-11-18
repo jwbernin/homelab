@@ -1,0 +1,16 @@
+---
+- name: Add non-standard web ports for Nagios checks
+  ansible.builtin.blockinfile:
+    path: "/etc/nagios/hosts/{{ nagios_hostname }}.cfg"
+    block: |
+      define service {
+        use                     generic-service
+        host_name               {{ nagios_hostname }}
+        service_description     Web port {{ item[0] }}
+        check_command           check_http_other!{{ item[0] }}
+      }
+    marker: "# {mark} Adding non-standard HTTP port {{ item }} check block"
+    state: present
+  loop:
+    - "{{ hostvars[nagios_hostname]['webports'] }}"
+

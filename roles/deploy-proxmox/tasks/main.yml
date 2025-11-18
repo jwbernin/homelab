@@ -1,0 +1,111 @@
+---
+# tasks file for deploy-proxmox
+- name: Copy ISO into place
+  shell: 'scp /tmp/{{ inventory_hostname }}.iso proxmox-files@10.1.0.80:/volume1/haisostore/template/iso/'
+  delegate_to: localhost
+
+- name: Find node with least used memory
+  block:
+    - name: Get list of all proxmox nodes
+      community.general.proxmox_node_info:
+        api_host: "{{ proxmoxHost }}"
+        api_password: "{{ proxmoxPassword }}"
+        api_user: "{{ proxmoxUser }}"
+      register: proxmox_nodes
+      delegate_to: localhost
+    
+    - name: Get list of nodes with CPU usage values
+      set_fact:
+        compressed_node_list: "{{ compressed_node_list | default ({}) | combine({item['node'] : item['cpu']}) }}"
+      loop: "{{ proxmox_nodes['proxmox_nodes'] }}"
+      delegate_to: localhost
+
+    - name: Sort list
+      set_fact:
+        sorted_node_list: "{{ compressed_node_list | dictsort(false, 'value') }}"
+      delegate_to: localhost
+
+    - name: set our target node
+      set_fact:
+        target_node: "{{ sorted_node_list[0][0] }}"
+      delegate_to: localhost
+
+- name: create Proxmox VM
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+    cores: "{{ cpu.cores | default(2) }}"
+    cpu: 'x86-64-v3'
+    description: "{{ comment }}"
+    ide:
+      ide0: "HAISOstore:iso/{{ inventory_hostname }}.iso,media=cdrom"
+    memory: "{{ memory_mb }}"
+    net:
+      net0: 'virtio,bridge=vmbr0'
+    node: "{{ target_node }}"
+    ostype: "l26"
+    scsihw: "virtio-scsi-single"
+    state: present
+    scsi: 
+      scsi0: "{{ disks[0].storage_domain }}:{{ disks[0].size_in_gb }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    pause: 2
+  register: __proxmox_results
+  delegate_to: localhost
+  when: 
+    - inventory_hostname == item
+    - minor > 10
+
+- name: create Proxmox VM
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+    cores: "{{ cpu.cores | default(2) }}"
+    cpu: 'host'
+    description: "{{ comment }}"
+    ide:
+      ide0: "HAISOstore:iso/{{ inventory_hostname }}.iso,media=cdrom"
+    memory: "{{ memory_mb }}"
+    net:
+      net0: 'virtio,bridge=vmbr0'
+    node: "{{ target_node }}"
+    ostype: "l26"
+    scsihw: "virtio-scsi-single"
+    state: present
+    scsi: 
+      scsi0: "{{ disks[0].storage_domain }}:{{ disks[0].size_in_gb }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    pause: 2
+  register: __proxmox_results
+  delegate_to: localhost
+  when: 
+    - inventory_hostname == item
+    - minor < 10
+
+- name: Wait until the VM exists
+  community.general.proxmox_vm_info:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+  register: new_vm_info
+  until: "'proxmox_vms' in new_vm_info"
+  retries: 5
+  delay: 10
+  delegate_to: localhost
+
+- name: boot VM
+  community.general.proxmox_kvm:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+    state: started
+  delegate_to: localhost
+

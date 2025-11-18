@@ -1,0 +1,25 @@
+<?php
+  $sensor = $_GET['sensor'];
+  $host = $_GET['name'];
+  if (array_key_exists('startpoint', $_GET)) {
+    $start = $_GET['startpoint'];
+  } else {
+    $start = "-1d";
+  }
+  $options = array(
+    "--start", $start,
+    "--title=${host} - ${sensor}",
+    "--width=450",
+    "--height=120",
+    "--right-axis=1.8:32",
+    "DEF:{$sensor}=/var/lib/groves/{$host}.{$sensor}.rrd:${sensor}:AVERAGE",
+    "LINE:{$sensor}#00FF00:{$sensor}",
+  );
+
+  $graphObj = new RRDGraph('-');
+  $graphObj->setOptions($options);
+  $res = $graphObj->saveVerbose();
+
+  header("Content-type: image/png");
+  echo $res['image'];
+?>

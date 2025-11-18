@@ -1,0 +1,181 @@
+---
+# tasks file for deploy-proxsat
+
+- name: Make sure the name matches
+  assert:
+    that: inventory_hostname == shortname + '.' + domain 
+    fail_msg: "Sanity check fail - mismatch between inventory host and host data."
+    quiet: true
+
+- name: Find node with least used memory
+  block:
+    - name: Get list of all proxmox nodes
+      community.proxmox.proxmox_node_info:
+        api_host: "{{ proxmoxHost }}"
+        api_password: "{{ proxmoxPassword }}"
+        api_user: "{{ proxmoxUser }}"
+      register: proxmox_nodes
+      delegate_to: localhost
+    
+    - name: Get list of nodes with CPU usage values
+      set_fact:
+        compressed_node_list: "{{ compressed_node_list | default ({}) | combine({item['node'] : item['cpu']}) }}"
+      loop: "{{ proxmox_nodes['proxmox_nodes'] }}"
+      delegate_to: localhost
+
+    - name: Sort list
+      set_fact:
+        sorted_node_list: "{{ compressed_node_list | dictsort(false, 'value') }}"
+      delegate_to: localhost
+
+    - name: set our target node
+      set_fact:
+        target_node: "{{ sorted_node_list[0][0] }}"
+      delegate_to: localhost
+
+- name: Find interfaces with active CIDRs
+  set_fact:
+    candidate_ifaces: "{{ proxmox_nodes['proxmox_nodes'][0]['network'] | selectattr ('cidr', 'defined') }}"
+  
+- name: Find network interface
+  block:
+    - name: Search via loop
+      set_fact:
+        netbridge: "{{ item.iface }}"
+      when: netid.ip is ansible.utils.in_network (item.cidr | ansible.utils.ipsubnet)
+      loop: "{{ candidate_ifaces }}"
+  throttle: 1
+
+- name: Make sure we can create the machine
+  ansible.builtin.assert:
+    that:
+      - netbridge is defined
+    fail_msg: "Unable to find host network interface to associate VM with."
+    quiet: true
+
+- name: create Proxmox VM
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+    cores: "{{ cpu.cores | default(2) }}"
+    cpu: 'x86-64-v3'
+    description: "{{ comment }}"
+    memory: "{{ memory_mb }}"
+    net:
+      net0: 'virtio,bridge={{ netbridge }}'
+    node: "{{ target_node }}"
+    ostype: "l26"
+    scsihw: "virtio-scsi-single"
+    state: present
+    scsi: 
+      scsi0: "{{ disks[0].storage_domain }}:{{ disks[0].size_in_gb }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    pause: 2
+  register: __proxmox_results
+  delegate_to: localhost
+  when: 
+    - netbridge != 'nobridge'
+    - inventory_hostname == item
+
+- name: Get MAC address of VM just created
+  set_fact:
+    macaddr: "{{ __proxmox_results.results[0].mac.net0 }}"
+
+- name: Show MAC addr for new VM
+  debug:
+    var: macaddr
+
+- name: Wait until the VM exists
+  community.proxmox.proxmox_vm_info:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+  register: new_vm_info
+  until: "'proxmox_vms' in new_vm_info"
+  retries: 5
+  delay: 10
+  delegate_to: localhost
+
+# TODO: If 'subnet' not defined, look it up in Satellite.
+
+- name: Create host in Satellite
+  redhat.satellite.host:
+    build: yes
+    enabled: yes
+    hostgroup: "{{ hostgroup }}"
+    activation_keys: "{{ activationkey }}"
+    domain: "{{ domain }}"
+    interfaces_attributes:
+      - domain: "{{ domain }}"
+        execution: true
+        mac: "{{ macaddr }}"
+        managed: true
+        name: "{{ shortname }}"
+        primary: true
+        provision: true
+    ip: "{{ netid.ip }}"
+    location: "Homelab"
+    name: "{{ shortname }}.{{ domain }}"
+    organization: "NCP"
+    provision_method: "build"
+    ptable: "Kickstart default"
+    server_url: "https://satellite.jbho.me"
+    state: present
+    subnet: "{{ subnet | default ('Home') }}"
+    username: "{{ satAdmin }}"
+    password: "{{ satPass }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: new_sat_host_info
+
+- name: Store new Satellite host id
+  set_fact:
+    sat_host_id: "{{ new_sat_host_info.entity.hosts[0].id }}"
+
+- name: Ensure we have a place to keep our boot ISOs
+  ansible.builtin.file:
+    path: "bootisos"
+    state: directory
+  delegate_to: localhost
+
+- name: Retrieve boot ISO from Satellite
+  ansible.builtin.get_url:
+    url: "https://satellite.jbho.me/api/bootdisk/hosts/{{ sat_host_id }}?full=true"
+    dest: "bootisos/{{ inventory_hostname }}.iso"
+    validate_certs: false
+    url_username: "{{ satAdmin }}"
+    url_password: "{{ satPass }}"
+    force_basic_auth: true
+  delegate_to: localhost
+
+- name: Copy ISO into place
+  shell: 'scp bootisos/{{ inventory_hostname }}.iso proxmox-files@10.1.0.80:/volume1/haisostore/template/iso/'
+  delegate_to: localhost
+
+- name: Update proxmox VM with ISO information
+  community.proxmox.proxmox_kvm: 
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+    ide:
+      ide0: "HAISOstore:iso/{{ inventory_hostname }}.iso,media=cdrom"
+    node: "{{ target_node }}"
+    update: true
+    update_unsafe: true
+  delegate_to: localhost
+
+- name: Start the VM
+  community.proxmox.proxmox_kvm:
+    api_host: "{{ proxmoxHost }}"
+    api_password: "{{ proxmoxPassword }}"
+    api_user: "{{ proxmoxUser }}"
+    name: "{{ shortname }}.{{ domain }}"
+    state: started
+  delegate_to: localhost
+
+

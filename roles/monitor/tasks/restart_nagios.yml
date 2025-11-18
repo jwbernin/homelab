@@ -1,0 +1,7 @@
+---
+- name: Restart the Nagios service
+  systemd:
+    enabled: yes
+    name: nagios
+    state: restarted
+  

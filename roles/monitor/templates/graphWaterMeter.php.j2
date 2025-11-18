@@ -1,0 +1,125 @@
+<html>
+<head>
+<meta http-equiv="refresh" content="3600">
+<title>Water Usage</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<center>
+<table with="90%" cellpadding="20px" cellspacing="10px">
+ <tr>
+  <td>
+    <font size="+1">Prior 24 Hours</font><br/>
+    <div>
+      <canvas id="last24h" width="500"></canvas>
+    </div>
+  </td>
+  <td>
+    <font size="+1">Prior 8 days</font><br/>
+    <div>
+      <canvas id="last8d" width="500"></canvas>
+    </div>
+  </td>
+ </tr>
+</table>
+<script>
+  function showLastDay(target) {
+    $.post("watermeterData24h.php",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var hour = [];
+      var waterUsage = [];
+
+      for (var i in data) {
+        hour.push(data[i]['hour']);
+        waterUsage.push(data[i]['waterUse']/10.0);
+      }
+
+      hour.reverse();
+      waterUsage.reverse();
+
+      var chartdata = {
+        labels: hour,
+        datasets: [
+          {
+            label: 'Water Consumption',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterUsage
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'bar',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  function showLast8Days(target) {
+    $.post("watermeterDataDay.php",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var ymd = [];
+      var waterUsage = [];
+
+      for (var i in data) {
+        ymd.push(data[i]['ymd']);
+        waterUsage.push(data[i]['waterUse']/10.0);
+      }
+
+      ymd.reverse();
+      waterUsage.reverse();
+
+      var chartdata = {
+        labels: ymd,
+        datasets: [
+          {
+            label: 'Water Consumption',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterUsage
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'bar',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+
+  $(document).ready(function () {
+    showLastDay("#last24h");
+    showLast8Days("#last8d");
+  });
+
+</script>
+</body>
+</html>

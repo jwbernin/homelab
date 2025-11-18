@@ -1,0 +1,24 @@
+define host {
+    use			linux-server
+    host_name		{{ nagios_hostname }}
+    alias		{{ nagios_hostname }}
+    address		{{ lookup('dig', nagios_hostname) }}
+{% if hostvars[nagios_hostname]['noparent'] is not defined and hostvars[nagios_hostname]['parenttype'] is defined %}
+{% if hostvars[nagios_hostname]['portnum'] is defined %}
+    event_handler	reboot-pi!{{ hostvars[nagios_hostname]['parenttype'] }}!{{ hostvars[nagios_hostname]['switchnum'] | default ('') }}!{{ hostvars[nagios_hostname]['portnum']  }}
+{% endif %}
+    parents		{{ hostvars[nagios_hostname]['parenttype'] }}{{ hostvars[nagios_hostname]['switchnum'] | default ('') }}.jbho.me
+{% elif hostvars[nagios_hostname]['virt_plat'] is defined %}
+    parents		proxmox1.jbho.me,proxmox2.jbho.me,proxmox3.jbho.me,proxmox4.jbho.me,proxmox5.jbho.me
+{% endif %}
+}
+
+{% for service in nagios_services %}
+define service {
+    use			generic-service
+    host_name		{{ nagios_hostname }}
+    service_description {{ service.description }}
+    check_command	{{ service.command }}
+}
+
+{% endfor %}

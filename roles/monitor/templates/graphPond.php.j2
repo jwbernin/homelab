@@ -1,0 +1,315 @@
+<?php
+  $pondName = $_GET['sensor'];
+?>
+<html>
+<head>
+<meta http-equiv="refresh" content="3600">
+<title>Pond Data - <?php echo $pondName; ?></title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<center>
+<table with="90%" cellpadding="20px" cellspacing="10px">
+ <tr>
+  <td align="center">
+    Last 24 hours<br/>
+    <div>
+      <canvas id="<?php echo $pondName; ?>24h" width="500"></canvas>
+    </div>
+  </td>
+  <td align="center">
+    Last 8 days<br/>
+    <div>
+      <canvas id="<?php echo $pondName; ?>8d" width="500"></canvas>
+    </div>
+  </td>
+ </tr>
+ <tr>
+  <td align="center">
+    Last 4 weeks<br/>
+    <div>
+      <canvas id="<?php echo $pondName; ?>4w" width="500"></canvas>
+    </div>
+  </td>
+  <td align="center">
+    Last 6 months<br/>
+    <div>
+      <canvas id="<?php echo $pondName; ?>6m" width="500"></canvas>
+    </div>
+  <td>
+ </tr>
+</table>
+
+</center>
+<script>
+  function showPond24h(target, source) {
+    $.post("pondData24h.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data =JSON.parse(indata);
+      console.log(data);
+      var hour = [];
+      var waterTemp = [];
+
+      for (var i in data) {
+        hour.push(data[i]['hour']);
+        waterTemp.push(data[i]['waterTemp']);
+      }
+
+      hour.reverse();
+      waterTemp.reverse();
+
+      var chartdata = {
+        labels: hour,
+        datasets: [
+          {
+            label: 'Water Temperature (F)',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterTemp
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  function showPond8d(target, source) {
+    $.post("pondDataDay.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data = "";
+      data =JSON.parse(indata);
+      console.log(data);
+      var ymd = [];
+      var waterTemp = [];
+      var tempHigh = [];
+      var tempLow = [];
+      var stdDev = [];
+
+      for (var i in data) {
+        ymd.push(data[i]['ymd']);
+        tempHigh.push(data[i]['high']);
+        tempLow.push(data[i]['low']);
+        stdDev.push(data[i]['stddev']);
+        waterTemp.push(data[i]['mean']);
+      }
+
+      ymd.reverse();
+      tempHigh.reverse();
+      tempLow.reverse();
+      stdDev.reverse();
+      waterTemp.reverse();
+
+      var chartdata = {
+        labels: ymd,
+        datasets: [
+          {
+            label: 'Water Temperature (F)',
+            backgroundColor: '#38fc48',
+            borderColor: '#2bcf39',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterTemp,
+            pointRadius: stdDev
+          },
+          {
+            label: 'Daily High (F)',
+            backgroundColor: '#ff3d5a',
+            borderColor: '#c42d44',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: tempHigh
+          },
+          {
+            label: 'Daily Low (F)',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: tempLow
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  function showPond4w(target, source) {
+    $.post("pondDataWeek.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data = '';
+      data =JSON.parse(indata);
+      console.log(data);
+      var yw = [];
+      var waterTemp = [];
+      var tempHigh = [];
+      var tempLow = [];
+      var stdDev = [];
+
+      for (var i in data) {
+        yw.push(data[i]['yw']);
+        tempHigh.push(data[i]['high']);
+        tempLow.push(data[i]['low']);
+        stdDev.push(data[i]['stddev']);
+        waterTemp.push(data[i]['mean']);
+      }
+
+      yw.reverse();
+      tempHigh.reverse();
+      tempLow.reverse();
+      stdDev.reverse();
+      waterTemp.reverse();
+
+      var chartdata = {
+        labels: yw,
+        datasets: [
+          {
+            label: 'Water Temperature (F)',
+            backgroundColor: '#38fc48',
+            borderColor: '#2bcf39',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterTemp,
+            pointRadius: stdDev
+          },
+          {
+            label: 'Daily High (F)',
+            backgroundColor: '#ff3d5a',
+            borderColor: '#c42d44',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: tempHigh
+          },
+          {
+            label: 'Daily Low (F)',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: tempLow
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+
+  function showPond6m(target, source) {
+    $.post("pondDataMonth.php?sensor="+source+".jbho.me",
+    function (indata) {
+      data = "";
+      data =JSON.parse(indata);
+      console.log(data);
+      var ym = [];
+      var waterTemp = [];
+      var tempHigh = [];
+      var tempLow = [];
+      var stdDev = [];
+
+      for (var i in data) {
+        ym.push(data[i]['yw']);
+        tempHigh.push(data[i]['high']);
+        tempLow.push(data[i]['low']);
+        stdDev.push(data[i]['stddev']);
+        waterTemp.push(data[i]['mean']);
+      }
+
+      ym.reverse();
+      tempHigh.reverse();
+      tempLow.reverse();
+      stdDev.reverse();
+      waterTemp.reverse();
+
+      var chartdata = {
+        labels: ym,
+        datasets: [
+          {
+            label: 'Water Temperature (F)',
+            backgroundColor: '#38fc48',
+            borderColor: '#2bcf39',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: waterTemp,
+            pointRadius: stdDev
+          },
+          {
+            label: 'Daily High (F)',
+            backgroundColor: '#ff3d5a',
+            borderColor: '#c42d44',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: tempHigh
+          },
+          {
+            label: 'Daily Low (F)',
+            backgroundColor: '#3888ff',
+            borderColor: '#2b6bcc',
+            hoverBackgroundColor: '#CCCCCC',
+            hoverBorderColor: '#666666',
+            data: tempLow
+          }
+        ]
+      };
+
+      var options = {
+        responsive: true,
+        maintainAspectRatio: false
+      };
+
+      var graphTarget = $(target);
+
+      var barGraph = new Chart(graphTarget, {
+        type: 'line',
+        data: chartdata,
+        options: options
+      });
+    });
+  }
+  $(document).ready(function () {
+    showPond24h("#<?php echo $pondName; ?>24h", '<?php echo $pondName; ?>');
+    showPond8d("#<?php echo $pondName; ?>8d", '<?php echo $pondName; ?>');
+    showPond4w("#<?php echo $pondName; ?>4w", '<?php echo $pondName; ?>');
+    showPond6m("#<?php echo $pondName; ?>6m", '<?php echo $pondName; ?>');
+  });
+
+</script>
+</body>
+</html>

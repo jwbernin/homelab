@@ -1,0 +1,8 @@
+{% for hostgroup in nagios_hostgroups %}
+define hostgroup {
+    hostgroup_name		{{ hostgroup }}
+    alias			{{ hostgroup }}
+    members			{{ groups[hostgroup] | join (',') }}
+}
+
+{% endfor %}

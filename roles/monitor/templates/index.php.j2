@@ -1,0 +1,32 @@
+<html>
+<head>
+<title>Grove status screen</title>
+<meta http-equiv="refresh" content="600">
+</head>
+<body align="center">
+<h1>Controllers</h1>
+<table align="center" width="90%">
+ <tr>
+{% for host in groups['controller'] %}
+  <td align="center"><a href="controllerDetail.php?name={{ host }}"><img src="graphSensor.php?name={{ host }}&sensor=AirTemp"></a></td>
+{% if loop.index is divisibleby(3) and not loop.last%}
+ </tr><tr>
+{% endif %}
+{% endfor %}
+ </tr>
+</table>
+<hr height=2 width="85%">
+<h1>Ponds</h1>
+<table align="center" width="90%">
+ <tr>
+{% for host in groups['pond'] %}
+  <td align="center"><a href="pondDetail.php?name={{ host }}"><img src="graphSensor.php?name={{ host }}&sensor=WaterTemp"></a></td>
+{% if loop.index is divisibleby(3) and not loop.last %}
+ </tr><tr>
+{% endif %}
+{% endfor %}
+ </tr>
+</table>
+
+</body>
+</html>
