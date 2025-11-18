@@ -1,0 +1,24 @@
+---
+- name: Register to Satellite
+  hosts: all
+  tasks:
+    - name: Generate registration command
+      redhat.satellite.registration_command:
+        username: "{{ satAdmin }}"
+        password: "{{ satPass }}"
+        server_url: "https://satellite.jbho.me"
+        activation_keys: "{{ activationkey }}"
+        hostgroup: "{{ hostgroup }}"
+        insecure: true
+        validate_certs: false
+        setup_insights: true
+        setup_remote_execution: true
+        update_packages: true
+        organization: "NCP"
+        force: true
+      register: command
+      delegate_to: localhost
+
+    - name: "Perform registration"
+      ansible.builtin.shell:
+        cmd: "{{ command.registration_command }}"
