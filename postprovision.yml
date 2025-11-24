@@ -1,0 +1,48 @@
+---
+- name: Complete post-provisioning tasks
+  hosts: all
+  become: true
+
+  tasks:
+  - name: Install NFS utils package
+    yum:
+      name: nfs-utils
+      state: present
+
+  - name: Install libsemanage-python
+    yum:
+      name: python3-libsemanage
+      state: present
+
+  - name: Enroll with IDM
+    include_role:
+      name: redhat.rhel_idm.ipaclient
+
+  - name: Ensure autofs installed
+    yum:
+      name: autofs
+      state: present
+
+  - name: Ensure shared homedir mount points are available
+    ansible.builtin.file:
+      mode: 0755
+      path: "{{ item }}"
+      state: directory
+    loop:
+      - /nfshome
+      - /hahome
+
+  - name: Turn on NFS sebools
+    ansible.posix.seboolean:
+      name: "{{ item }}"
+      persistent: true
+      state: true
+    loop:
+      - httpd_use_nfs
+      - use_nfs_home_dirs
+
+  - name: Ensure autofs is started
+    ansible.builtin.systemd_service:
+      enabled: true
+      name: autofs
+      state: started
