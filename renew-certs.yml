@@ -1,0 +1,14 @@
+---
+- name: Renew LetsEncrypt certs
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Check if LetsEncrypt is installed
+      ansible.builtin.stat:
+        path: /etc/letsencrypt/live
+      register: dir_status
+
+    - name: Run renew command
+      shell: /usr/bin/certbot renew
+      when: dir_status.stat.exists and dir_status.stat.isdir
