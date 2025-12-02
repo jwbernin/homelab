@@ -2,3 +2,4 @@ bootisos
 host_vars
 group_vars
 .vaultpass
+opie-pubkey

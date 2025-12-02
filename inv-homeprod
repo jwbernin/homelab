@@ -4,7 +4,9 @@ loki.jbho.me ansible_user=root
 [homeimportant]
 piaware.jbho.me ansible_user=root
 labjump.jbho.me ansible_user=root
+gitlab.jbho.me ansible_user=root
 aap-prod.jbho.me ansible_user=root
+keycloak.jbho.me ansible_user=root
 
 [homemisc]
 rhea.jbho.me ansible_user=root

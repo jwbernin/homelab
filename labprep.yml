@@ -1,0 +1,26 @@
+---
+- name: Complete general tasks to set up 'new' lab environment
+  hosts: all
+  become: true
+
+  tasks:
+  - name: /etc/sudoers.d/opie file present
+    copy:
+      content: "opie ALL= (ALL) NOPASSWD: ALL"
+      dest: /etc/sudoers.d/opie
+      mode: 0755
+      owner: root
+      group: root
+
+  - name: Ensure opie user exists
+    ansible.builtin.user:
+      comment: OPIE lab initialization user
+      name: opie
+      password: "!"
+      shell: /bin/bash
+
+  - name: Deploy SSH key to opie user
+    authorized_key:
+      state: present
+      user: opie
+      key: "{{ lookup('file', 'opie-pubkey') }}"

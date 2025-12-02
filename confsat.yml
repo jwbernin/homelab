@@ -216,6 +216,7 @@
           loop: "{{ le_pairs | product(content_views) | list }}"
           delegate_to: localhost
           when: not skip_publish
+          tags: activationkeys
     
         - name: Create Host Groups
           redhat.satellite.hostgroup:
@@ -234,6 +235,7 @@
             operatingsystem: "{{ os_vers[item.1.name] }}"
             pxe_loader: "PXELinux BIOS"
             validate_certs: false
+            ptable: "Kickstart default"
           loop: "{{ le_pairs | product(content_views) | list }}"
           delegate_to: localhost
           tags: hostgroup

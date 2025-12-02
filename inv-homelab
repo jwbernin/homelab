@@ -1,4 +1,7 @@
 [idm]
-ipa1.lab.jbho.me
-ipa2.lab.jbho.me
-ipa3.lab.jbho.me
+ipa1.lab.jbho.me ansible_user=root
+ipa2.lab.jbho.me ansible_user=root
+ipa3.lab.jbho.me ansible_user=root
+
+[satellite]
+sat.lab.jbho.me ansible_user=root

@@ -1,0 +1,17 @@
+---
+- name: Create repository
+  redhat.satellite.repository:
+    username: "{{ satAdmin }}"
+    password: "{{ satPass }}"
+    server_url: "https://{{ inventory_hostname }}"
+    organization: "{{ satOrg }}"
+    name: "{{ item.name }}"
+    product: "{{ theprod.name }}"
+    content_type: "{{ item.content }}"
+    url: "{{ item.url }}"
+    gpg_key: "{{ item.gpgkey.name | default(omit) }}"
+    download_policy: immediate
+    validate_certs: false
+  loop: "{{ theprod.repos }}"
+  delegate_to: localhost
+

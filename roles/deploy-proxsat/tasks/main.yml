@@ -53,53 +53,68 @@
     fail_msg: "Unable to find host network interface to associate VM with."
     quiet: true
 
-- name: create Proxmox VM
-  community.proxmox.proxmox_kvm:
-    api_host: "{{ proxmoxHost }}"
-    api_password: "{{ proxmoxPassword }}"
-    api_user: "{{ proxmoxUser }}"
-    name: "{{ shortname }}.{{ domain }}"
-    cores: "{{ cpu.cores | default(2) }}"
-    cpu: 'x86-64-v3'
-    description: "{{ comment }}"
-    memory: "{{ memory_mb }}"
-    net:
-      net0: 'virtio,bridge={{ netbridge }}'
-    node: "{{ target_node }}"
-    ostype: "l26"
-    scsihw: "virtio-scsi-single"
-    state: present
-    scsi: 
-      scsi0: "{{ disks[0].storage_domain }}:{{ disks[0].size_in_gb }}"
-  loop: "{{ ansible_play_hosts }}"
-  loop_control:
-    pause: 2
-  register: __proxmox_results
-  delegate_to: localhost
-  when: 
-    - netbridge != 'nobridge'
-    - inventory_hostname == item
+- name: Ensure the VM exists
+  block:
+    - name: Get info on existing VM
+      comminuty.proxmox.proxmox_vm_info:
+        api_host: "{{ proxmoxHost }}"
+        api_password: "{{ proxmoxPassword }}"
+        api_user: "{{ proxmoxUser }}"
+        name: "{{ shortname }}.{{ domain }}"
+        config: "current"
+      register: prox_vm_info
+      failed_when: proxmox_vm_info.proxmox_vms == []
 
-- name: Get MAC address of VM just created
-  set_fact:
-    macaddr: "{{ __proxmox_results.results[0].mac.net0 }}"
-
-- name: Show MAC addr for new VM
-  debug:
-    var: macaddr
-
-- name: Wait until the VM exists
-  community.proxmox.proxmox_vm_info:
-    api_host: "{{ proxmoxHost }}"
-    api_password: "{{ proxmoxPassword }}"
-    api_user: "{{ proxmoxUser }}"
-    name: "{{ shortname }}.{{ domain }}"
-  register: new_vm_info
-  until: "'proxmox_vms' in new_vm_info"
-  retries: 5
-  delay: 10
-  delegate_to: localhost
-
+    - name: Set Mac address
+      set_fact:
+        macaddr: "{{ prox_vm_info.proxmox_vms[0].config.net0 | regex_search('virtio=(..:..:..:..:..:..),', '\\1') }}"
+    
+  # The VM doesn't already exist, create it
+  rescue:
+    - name: create Proxmox VM
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ proxmoxHost }}"
+        api_password: "{{ proxmoxPassword }}"
+        api_user: "{{ proxmoxUser }}"
+        name: "{{ shortname }}.{{ domain }}"
+        cores: "{{ cpu.cores | default(2) }}"
+        cpu: 'x86-64-v3'
+        description: "{{ comment }}"
+        memory: "{{ memory_mb }}"
+        net:
+          net0: 'virtio,bridge={{ netbridge }}'
+        node: "{{ target_node }}"
+        ostype: "l26"
+        scsihw: "virtio-scsi-single"
+        state: present
+        scsi: 
+          scsi0: "{{ disks[0].storage_domain }}:{{ disks[0].size_in_gb }}"
+      loop: "{{ ansible_play_hosts }}"
+      loop_control:
+        pause: 2
+      register: __proxmox_results
+      delegate_to: localhost
+      when: 
+        - netbridge != 'nobridge'
+        - inventory_hostname == item
+    
+    - name: Get MAC address of VM just created
+      set_fact:
+        macaddr: "{{ __proxmox_results.results[0].mac.net0 }}"
+    
+    - name: Wait until the VM exists
+      community.proxmox.proxmox_vm_info:
+        api_host: "{{ proxmoxHost }}"
+        api_password: "{{ proxmoxPassword }}"
+        api_user: "{{ proxmoxUser }}"
+        name: "{{ shortname }}.{{ domain }}"
+        config: "current"
+      register: new_vm_info
+      until: "'proxmox_vms' in new_vm_info"
+      retries: 5
+      delay: 10
+      delegate_to: localhost
+    
 # TODO: If 'subnet' not defined, look it up in Satellite.
 
 - name: Create host in Satellite
