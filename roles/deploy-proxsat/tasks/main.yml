@@ -56,18 +56,24 @@
 - name: Ensure the VM exists
   block:
     - name: Get info on existing VM
-      comminuty.proxmox.proxmox_vm_info:
+      community.proxmox.proxmox_vm_info:
         api_host: "{{ proxmoxHost }}"
         api_password: "{{ proxmoxPassword }}"
         api_user: "{{ proxmoxUser }}"
         name: "{{ shortname }}.{{ domain }}"
         config: "current"
       register: prox_vm_info
-      failed_when: proxmox_vm_info.proxmox_vms == []
+      failed_when: prox_vm_info.proxmox_vms == []
+      delegate_to: localhost
 
     - name: Set Mac address
       set_fact:
-        macaddr: "{{ prox_vm_info.proxmox_vms[0].config.net0 | regex_search('virtio=(..:..:..:..:..:..),', '\\1') }}"
+        macaddr: "{{ prox_vm_info.proxmox_vms[0].config.net0 | regex_search('virtio=(..:..:..:..:..:..),', '\\1') | first }}"
+      delegate_to: localhost
+
+    - name: Show mac address
+      debug:
+        var: macaddr
     
   # The VM doesn't already exist, create it
   rescue:
