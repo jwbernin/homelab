@@ -128,7 +128,6 @@
     build: yes
     enabled: yes
     hostgroup: "{{ hostgroup }}"
-    activation_keys: "{{ activationkey }}"
     domain: "{{ domain }}"
     interfaces_attributes:
       - domain: "{{ domain }}"
