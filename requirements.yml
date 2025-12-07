@@ -13,3 +13,4 @@ collections:
   - name: redhat.rhel_idm
   - name: community.proxmox
   - name: ansible.utils
+  - name: hashicorp.vault
