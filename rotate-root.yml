@@ -5,4 +5,4 @@
   tasks:
   - name: Show root pw
     debug:
-      var: VAULT_TOKEN
+      var: ansible_env.VAULT_TOKEN
