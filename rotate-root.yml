@@ -5,5 +5,5 @@
   tasks:
   - name: Rotate root password to vaule from Hashicorp Vault
     ansible.builtin.user:
-      password: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') | password_hash('sha512') }}"
+      password: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') | password_hash('sha256') }}"
       name: root
