@@ -1,0 +1,8 @@
+---
+- name: Rotate root password, uses root pass stored in hshicorp vault
+  hosts: all
+  
+  tasks:
+  - name: Show root pw
+    debug:
+      var: vault_token
