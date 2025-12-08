@@ -1,8 +1,8 @@
 ---
-- name: Rotate root password, uses root pass stored in hshicorp vault
+- name: Look up secret from Hashicorp Vault
   hosts: all
   
   tasks:
-  - name: Show root pw
+  - name: Show token
     debug:
-      var: ansible_env.VAULT_TOKEN
+      msg: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') }}"
