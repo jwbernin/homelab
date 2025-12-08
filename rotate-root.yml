@@ -1,8 +1,9 @@
 ---
-- name: Look up secret from Hashicorp Vault
+- name: Rotate root passwords
   hosts: all
   
   tasks:
-  - name: Show token
-    debug:
-      msg: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') }}"
+  - name: Rotate root password to vaule from Hashicorp Vault
+    ansible.builtin.user:
+      password: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') }} | password_hash('sha512')"
+      name: root
