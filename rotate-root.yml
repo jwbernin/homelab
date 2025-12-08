@@ -5,4 +5,4 @@
   tasks:
   - name: Show root pw
     debug:
-      var: vault_token
+      var: VAULT_TOKEN
