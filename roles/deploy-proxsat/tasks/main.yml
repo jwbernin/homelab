@@ -121,7 +121,25 @@
       delay: 10
       delegate_to: localhost
     
-# TODO: If 'subnet' not defined, look it up in Satellite.
+block:
+when: subnet is not defined
+  - name: Find all Subnets in Satellite
+    redhat.satellite.subnet_info:
+      username: "{{ satAdmin }}"
+      password: "{{ satPass }}"
+      validate_certs: false
+      server_url: "{{ satellite_hostname | default ('https://satellite.jbho.me') }}"
+    register: sat_subnets
+  
+  - name: Find subnet
+    block:
+      - name: Search via loop
+        set_fact:
+          subnet: "{{ item.name }}"
+        when: netid.ip is ansible.utils.in_network (item.network_address)
+        loop: "{{ sat_subnets.subnets }}"
+    throttle: 1
+
 
 - name: Create host in Satellite
   redhat.satellite.host:
@@ -138,14 +156,14 @@
         primary: true
         provision: true
     ip: "{{ netid.ip }}"
-    location: "Homelab"
+    location: "NCLAB"
     name: "{{ shortname }}.{{ domain }}"
     organization: "NCP"
     provision_method: "build"
     ptable: "Kickstart default"
-    server_url: "https://satellite.jbho.me"
+    server_url: "{{ satellite_hostname | default ('https://satellite.jbho.me') }}"
     state: present
-    subnet: "{{ subnet | default ('Home') }}"
+    subnet: "{{ subnet | default (omit) }}"
     username: "{{ satAdmin }}"
     password: "{{ satPass }}"
     validate_certs: false
@@ -164,7 +182,7 @@
 
 - name: Retrieve boot ISO from Satellite
   ansible.builtin.get_url:
-    url: "https://satellite.jbho.me/api/bootdisk/hosts/{{ sat_host_id }}?full=true"
+    url: "{{ satellite_hostname | default ('https://satellite.jbho.me') }}/api/bootdisk/hosts/{{ sat_host_id }}?full=true"
     dest: "bootisos/{{ inventory_hostname }}.iso"
     validate_certs: false
     url_username: "{{ satAdmin }}"
